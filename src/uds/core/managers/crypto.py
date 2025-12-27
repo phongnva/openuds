@@ -83,6 +83,10 @@ class CryptoManager(metaclass=singleton.Singleton):
     _namespace: uuid.UUID
 
     def __init__(self) -> None:
+        print(f"DEBUG: CryptoManager __init__, settings.RSA_KEY length={len(settings.RSA_KEY)}")
+        if len(settings.RSA_KEY) > 100:
+            print(f"DEBUG: CryptoManager RSA_KEY start={settings.RSA_KEY[:50]}")
+            print(f"DEBUG: CryptoManager RSA_KEY end={settings.RSA_KEY[-50:]}")
         self._rsa = typing.cast(
             'RSAPrivateKey',
             serialization.load_pem_private_key(

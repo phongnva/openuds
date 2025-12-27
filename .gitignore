@@ -85,3 +85,22 @@
 
 target/
 test-vars.ini
+
+# Docker and runtime files
+.env
+*.pem
+!certs/*.pem
+src/server/rsa_key.pem
+
+# Log files
+/src/log/*.log
+*.log
+
+# SQLite databases
+*.sqlite3
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Python cache
+__pycache__/
+*.egg-info/

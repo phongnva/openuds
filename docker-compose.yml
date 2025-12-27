@@ -1,0 +1,51 @@
+services:
+  db:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_DATABASE: dbuds
+      MYSQL_USER: dbuds
+      MYSQL_PASSWORD: PASSWORD
+      MYSQL_ROOT_PASSWORD: ROOT_PASSWORD
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+  memcached:
+    image: memcached:1.6-alpine
+    restart: always
+    ports:
+      - "11211:11211"
+
+  broker:
+    build: .
+    restart: always
+    environment:
+      - DATABASE=mysql
+      - DB_ENGINE=django.db.backends.mysql
+      - DB_NAME=dbuds
+      - DB_USER=dbuds
+      - DB_PASSWORD=PASSWORD
+      - DB_HOST=db
+      - DB_PORT=3306
+      - MEMCACHED_HOST=memcached
+      - MEMCACHED_PORT=11211
+      - SECRET_KEY=s5ky!7b5f#s35!e38xv%e-+iey6yi-#630x)kk3kk5_j8rie2*
+      - DEBUG=True
+      - ALLOWED_HOSTS=*
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - db
+      - memcached
+    volumes:
+      - .:/app
+      - ./certs:/app/certs:ro
+      - static_volume:/app/src/static
+
+volumes:
+  db_data:
+  static_volume:
