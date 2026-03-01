@@ -68,8 +68,15 @@ Deploys EVERYTHING (Common, MySQL, OpenUDS, Nginx, HAProxy, Keepalived).
 ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml
 ```
 
+### Deploying Rebranded Source Code
+If you have modified the UI aesthetics or client downloads locally, you must execute the rebranding script to dynamically reconstruct the UI payloads (`main.js`, `index.html` without integrity hashes, etc.) first:
+```bash
+cd ../../  # Navigate to the server root
+./run_rebrand.sh
+```
+
 ### Application-only Redeploy
-Updates only the Django source code and restarts the app.
+Synchronizes the local workspace codebase directly to the remote App nodes and forcibly restarts the `gunicorn` environment to clear rendering caches. Use this to push Python updates or new rebranding modifications.
 ```bash
 ansible-playbook -i inventory/prod/hosts.yml playbooks/deploy_app.yml
 ```
