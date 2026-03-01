@@ -44,6 +44,10 @@ def replace_in_file(file_path, replacements):
     # Also remove integrity attributes which break SRI when scripts are modified
     if file_path.endswith('.html'):
         new_content = re.sub(r'\s+integrity="[^"]+"', '', new_content)
+        if 'modern' in file_path:
+            new_content = re.sub(r'background:url\(data:image/png;base64,[^)]+\)', 'background:url(/uds/res/modern/img/udsicon.png) no-repeat center center / contain', new_content)
+        elif 'admin' in file_path:
+            new_content = re.sub(r'background:url\(data:image/png;base64,[^)]+\)', 'background:url(/uds/res/admin/img/udsicon.png) no-repeat center center / contain', new_content)
         
     if new_content != content:
         print(f"Updated {file_path}")

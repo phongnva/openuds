@@ -1,5 +1,4 @@
-%define _topdir %(echo $PWD)/rpm
-%define name udsclient3
+%define name fsoft-client
 %define version 0.0.0
 %define release 1
 %define buildroot %{_topdir}/%{name}-%{version}-%{release}-root
@@ -8,12 +7,12 @@ BuildRoot: %{buildroot}
 Name: %{name}
 Version: %{version}
 Release: %{release}
-Summary: Client for Universal Desktop Services (UDS) Broker
+Summary: Client for FSOFT Virtual Desktop
 License: BSD3
 Group: Applications/Productivity
 Requires: (python3-qt6 or python3-qt5) python3-cryptography python3-certifi python3-psutil
-Vendor: Virtual Cable S.L.U.
-URL: http://www.udsenterprise.com
+Vendor: FSOFT
+URL: https://fpt-software.com
 Provides: udsclient
 
 %define _rpmdir ../

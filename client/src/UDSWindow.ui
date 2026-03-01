@@ -17,7 +17,7 @@
    <cursorShape>BusyCursor</cursorShape>
   </property>
   <property name="windowTitle">
-   <string>UDS Connection</string>
+   <string>FSOFT Virtual Desktop Connection</string>
   </property>
   <property name="windowIcon">
    <iconset resource="UDSResources.qrc">
