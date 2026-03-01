@@ -22,6 +22,10 @@ domain: pv-vds.tk
 vip: 103.131.85.232
 ssl_cert_path: /etc/ssl/certs/pv-vds.tk.crt
 ssl_key_path: /etc/ssl/private/pv-vds.tk.key
+ssl_pem_path: /etc/ssl/private/pv-vds.tk.pem
+# Set ssl_use_pem: true if you provide a single .pem file (cert+key combined)
+# Set ssl_use_pem: false to use separate .crt and .key files
+ssl_use_pem: false
 
 # === Database ===
 db_name: dbuds
@@ -36,7 +40,7 @@ mysql_repl_password: "{{ vault_repl_password | default('CHANGE_ME_REPL') }}"
 django_settings_module: server.settings_ha
 django_secret_key: "{{ vault_django_secret_key | default('s5ky!7b5f#s35!e38xv%e-+iey6yi-#630x)kk3kk5_j8rie2*') }}"
 django_debug: "False"
-django_allowed_hosts: "{{ domain }},{{ vip }},localhost,127.0.0.1"
+django_allowed_hosts: "*"
 
 # === Ports ===
 nginx_port: 8443

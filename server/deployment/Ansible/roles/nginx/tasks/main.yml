@@ -22,17 +22,43 @@
     state: link
   notify: reload nginx
 
+# --- SSL: PEM file mode (single file with cert+key) ---
+- name: Deploy SSL PEM file
+  copy:
+    src: "{{ playbook_dir }}/../files/ssl/{{ domain }}.pem"
+    dest: "{{ ssl_pem_path }}"
+    mode: "0600"
+  when: ssl_use_pem | bool
+  notify: reload nginx
+
+- name: Extract certificate from PEM
+  shell: >
+    openssl x509 -in {{ ssl_pem_path }} -out {{ ssl_cert_path }}
+  when: ssl_use_pem | bool
+  notify: reload nginx
+
+- name: Extract private key from PEM
+  shell: >
+    openssl pkey -in {{ ssl_pem_path }} -out {{ ssl_key_path }}
+  args:
+    creates: "{{ ssl_key_path }}"
+  when: ssl_use_pem | bool
+  notify: reload nginx
+
+# --- SSL: Separate cert + key mode ---
 - name: Deploy SSL certificate
   copy:
-    src: "{{ playbook_dir }}/../files/ssl/pv-vds.tk.crt"
+    src: "{{ playbook_dir }}/../files/ssl/{{ domain }}.crt"
     dest: "{{ ssl_cert_path }}"
     mode: "0644"
+  when: not (ssl_use_pem | bool)
 
 - name: Deploy SSL private key
   copy:
-    src: "{{ playbook_dir }}/../files/ssl/pv-vds.tk.key"
+    src: "{{ playbook_dir }}/../files/ssl/{{ domain }}.key"
     dest: "{{ ssl_key_path }}"
     mode: "0600"
+  when: not (ssl_use_pem | bool)
 
 - name: Add www-data to app group
   user:

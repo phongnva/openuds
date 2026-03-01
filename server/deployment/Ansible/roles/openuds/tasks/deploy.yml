@@ -75,7 +75,7 @@
     mode: "0640"
 
 - name: Generate RSA key (if not exists)
-  shell: "openssl genrsa 2048 > {{ src_dir }}/server/rsa_key.pem"
+  command: openssl genrsa -traditional -out {{ src_dir }}/server/rsa_key.pem 4096
   args:
     creates: "{{ src_dir }}/server/rsa_key.pem"
   become_user: "{{ app_user }}"

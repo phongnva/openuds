@@ -12,16 +12,27 @@
     group: haproxy
     mode: "0700"
 
-- name: Concatenate SSL cert + key for HAProxy
-  shell: >
-    cat {{ ssl_cert_path }} {{ ssl_key_path }} > /etc/haproxy/ssl/pv-vds.tk.pem
-  args:
-    creates: /etc/haproxy/ssl/pv-vds.tk.pem
+# --- PEM mode: copy PEM directly ---
+- name: Deploy PEM file for HAProxy (pem mode)
+  copy:
+    src: "{{ playbook_dir }}/../files/ssl/{{ domain }}.pem"
+    dest: "/etc/haproxy/ssl/{{ domain }}.pem"
+    owner: haproxy
+    group: haproxy
+    mode: "0600"
+  when: ssl_use_pem | bool
   notify: restart haproxy
 
-- name: Set PEM permissions
+# --- Separate cert+key mode: concatenate into PEM ---
+- name: Concatenate SSL cert + key for HAProxy
+  shell: >
+    cat {{ ssl_cert_path }} {{ ssl_key_path }} > /etc/haproxy/ssl/{{ domain }}.pem
+  when: not (ssl_use_pem | bool)
+  notify: restart haproxy
+
+- name: Set HAProxy PEM permissions
   file:
-    path: /etc/haproxy/ssl/pv-vds.tk.pem
+    path: "/etc/haproxy/ssl/{{ domain }}.pem"
     mode: "0600"
     owner: haproxy
     group: haproxy

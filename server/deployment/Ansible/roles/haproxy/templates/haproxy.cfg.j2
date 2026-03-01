@@ -42,7 +42,7 @@ listen stats
 
 # HTTPS frontend
 frontend https_frontend
-    bind {{ keepalived_vip }}:{{ haproxy_https_port }} ssl crt /etc/haproxy/ssl/pv-vds.tk.pem
+    bind {{ keepalived_vip }}:{{ haproxy_https_port }} ssl crt /etc/haproxy/ssl/{{ domain }}.pem
     mode http
     option httplog
 
