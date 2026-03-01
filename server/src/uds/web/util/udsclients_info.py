@@ -15,41 +15,26 @@ PLUGINS: typing.Final[list[dict[str, 'str|bool']]] = [
     }
     for url, description, name, legacy in (
         (
-            'UDSClientSetup-{version}.exe',
-            gettext('Windows client'),
+            'FSOFT Virtual Desktop Client.msi',
+            gettext('Windows Client using FSOFT Virtual Desktop Client.msi from client'),
             'Windows',
             False,
         ),
-        ('UDSClient-{version}.pkg', gettext('Mac OS X client'), 'MacOS', False),
         (
-            'udsclient3_{version}_all.deb',
-            gettext('Debian based Linux client') + ' ' + gettext('(requires Python-3.9 or newer)'),
-            'Linux',
-            False,
+            'MAC_Client.pkg', 
+            gettext('MAC Client (Apple Silicon)'), 
+            'MacOS', 
+            False
         ),
         (
-            'udsclient3-{version}-1.noarch.rpm',
-            gettext('RPM based Linux client (Fedora, Suse, ...)')
-            + ' '
-            + gettext('(requires Python-3.9 or newer)'),
-            'Linux',
-            False,
-        ),
-        (
-            'udsclient3-x86_64-{version}.tar.gz',
-            gettext('Binary appimage X86_64 Linux client'),
-            'Linux',
-            False,
-        ),
-        (
-            'udsclient3-armhf-{version}.tar.gz',
-            gettext('Binary appimage ARMHF Linux client (Raspberry, ...)'),
-            'Linux',
-            False,
+            'MAC_Client.pkg', 
+            gettext('MAC Client (Intel)'), 
+            'MacOS', 
+            False
         ),
         (
             'udsclient3-{version}.tar.gz',
-            gettext('Generic .tar.gz Linux client') + ' ' + gettext('(requires Python-3.9 or newer)'),
+            gettext('Linux build new for linux client'),
             'Linux',
             False,
         ),

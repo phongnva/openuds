@@ -2,7 +2,7 @@
 Name=FSOFT Virtual Desktop Client
 Comment=FSOFT Virtual Desktop Helper
 Keywords=fsoft;client;vdi;
-Exec=/usr/lib/UDSClient/UDSClient.py %u -platform xcb
+Exec=/usr/lib/UDSClient/UDSClientLauncher.py %u -platform xcb
 Icon=fsoft-client
 StartupNotify=true
 Terminal=false

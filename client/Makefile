@@ -28,7 +28,7 @@ install:
 	mkdir $(LIBDIR)/uds
 	
 	# Cleans up .pyc and cache folders
-	rm -f $(PYC) $(CACHES)
+	rm -rf $(PYC) $(CACHES)
 	
 	cp -rf $(SOURCEDIR)/uds/* $(LIBDIR)/uds
 
@@ -39,7 +39,7 @@ install:
 	mkdir -p $(DESTDIR)/usr/share/pixmaps
 	cp desktop/fsoft-client.png $(DESTDIR)/usr/share/pixmaps/fsoft-client.png
 	
-	chmod 755 $(LIBDIR)/UDSClient.py
+	chmod 755 $(LIBDIR)/UDSClientLauncher.py
 
 ifeq ($(DISTRO),targz)
 	cp installer.sh $(DESTDIR)/install.sh
