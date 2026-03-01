@@ -1,0 +1,26 @@
+#!/bin/bash
+set -e
+
+export DJANGO_SETTINGS_MODULE={{ django_settings_module }}
+export PYTHONPATH={{ src_dir }}
+cd {{ src_dir }}
+
+# Ensure directories exist
+mkdir -p {{ socket_dir }} {{ log_dir }} {{ static_dir }}
+
+# Start Gunicorn (daemonized, on unix socket)
+{{ venv_dir }}/bin/gunicorn server.wsgi:application \
+    --pid {{ socket_dir }}/gunicorn.pid \
+    --bind unix:{{ socket_path }} \
+    --workers 5 \
+    --threads 8 \
+    --timeout 120 \
+    --access-logfile {{ log_dir }}/gunicorn-access.log \
+    --error-logfile {{ log_dir }}/gunicorn-error.log \
+    --daemon
+
+# Wait for socket to be ready
+sleep 2
+
+# Start TaskManager in foreground (keeps systemd alive)
+exec {{ venv_dir }}/bin/python manage.py taskManager --start --foreground

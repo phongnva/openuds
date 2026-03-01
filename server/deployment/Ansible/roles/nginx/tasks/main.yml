@@ -1,0 +1,47 @@
+---
+- name: Install Nginx
+  apt:
+    name: nginx
+    state: present
+
+- name: Remove default nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Deploy UDS nginx config
+  template:
+    src: nginx_uds.conf.j2
+    dest: /etc/nginx/sites-available/openuds.conf
+  notify: reload nginx
+
+- name: Enable UDS nginx site
+  file:
+    src: /etc/nginx/sites-available/openuds.conf
+    dest: /etc/nginx/sites-enabled/openuds.conf
+    state: link
+  notify: reload nginx
+
+- name: Deploy SSL certificate
+  copy:
+    src: "{{ playbook_dir }}/../files/ssl/pv-vds.tk.crt"
+    dest: "{{ ssl_cert_path }}"
+    mode: "0644"
+
+- name: Deploy SSL private key
+  copy:
+    src: "{{ playbook_dir }}/../files/ssl/pv-vds.tk.key"
+    dest: "{{ ssl_key_path }}"
+    mode: "0600"
+
+- name: Add www-data to app group
+  user:
+    name: www-data
+    groups: "{{ app_group }}"
+    append: yes
+
+- name: Enable and start nginx
+  systemd:
+    name: nginx
+    enabled: yes
+    state: started

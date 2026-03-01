@@ -1,0 +1,45 @@
+---
+# =============================================================================
+# OpenUDS HA - Full Deployment Playbook
+# =============================================================================
+# Usage:
+#   ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml
+#   ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml --check --diff
+# =============================================================================
+
+- name: Deploy OpenUDS HA
+  hosts: uds_servers
+  become: yes
+
+  roles:
+    - common
+    - mysql
+    - openuds
+    - nginx
+    - haproxy
+    - keepalived
+
+  post_tasks:
+    - name: Verify all services are running
+      systemd:
+        name: "{{ item }}"
+        state: started
+      loop:
+        - mysql
+        - openuds-server
+        - nginx
+        - haproxy
+        - keepalived
+
+    - name: Display deployment info
+      debug:
+        msg: |
+          ========================================
+          OpenUDS HA Deployment Complete!
+          ========================================
+          Node: {{ inventory_hostname }} ({{ ansible_host }})
+          Role: {{ 'PRIMARY' if mysql_role == 'primary' else 'REPLICA' }}
+          Keepalived: {{ keepalived_state }}
+          VIP: {{ keepalived_vip }}
+          Domain: {{ domain }}
+          ========================================

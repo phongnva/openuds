@@ -1,0 +1,18 @@
+---
+- name: Configure replication
+  mysql_replication:
+    mode: changeprimary
+    primary_host: "{{ server01_ip }}"
+    primary_user: "{{ mysql_repl_user }}"
+    primary_password: "{{ mysql_repl_password }}"
+    primary_auto_position: yes
+    login_user: root
+    login_password: "{{ db_root_password }}"
+  # no_log: true
+
+- name: Start replication
+  mysql_replication:
+    mode: startreplica
+    login_user: root
+    login_password: "{{ db_root_password }}"
+  no_log: true

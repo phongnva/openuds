@@ -1,0 +1,28 @@
+---
+- name: Run Django migrations
+  shell: >
+    {{ venv_dir }}/bin/python manage.py migrate --noinput
+  args:
+    chdir: "{{ src_dir }}"
+  environment:
+    DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
+  become_user: "{{ app_user }}"
+
+- name: Create cache table
+  shell: >
+    {{ venv_dir }}/bin/python manage.py createcachetable
+  args:
+    chdir: "{{ src_dir }}"
+  environment:
+    DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
+  become_user: "{{ app_user }}"
+  ignore_errors: yes
+
+- name: Collect static files
+  shell: >
+    {{ venv_dir }}/bin/python manage.py collectstatic --noinput
+  args:
+    chdir: "{{ src_dir }}"
+  environment:
+    DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
+  become_user: "{{ app_user }}"

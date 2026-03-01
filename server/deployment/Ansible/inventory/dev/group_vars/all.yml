@@ -1,0 +1,54 @@
+# =============================================================================
+# OpenUDS HA - Shared Variables
+# =============================================================================
+
+# === App ===
+app_name: openuds
+app_user: openuds
+app_group: openuds
+app_dir: /opt/openuds
+src_dir: "{{ app_dir }}/src"
+venv_dir: "{{ app_dir }}/venv"
+log_dir: "{{ app_dir }}/log"
+static_dir: "{{ src_dir }}/static"
+socket_dir: /run/openuds
+socket_path: "{{ socket_dir }}/socket"
+python_version: "3.12"
+git_repo: "https://github.com/phongnva/openuds.git"
+git_branch: "v4.0.0"
+
+# === Domain & SSL ===
+domain: dev.pv-vds.tk
+vip: 192.168.1.100
+ssl_cert_path: /etc/ssl/certs/dev.pv-vds.tk.crt
+ssl_key_path: /etc/ssl/private/dev.pv-vds.tk.key
+
+# === Database ===
+db_name: dbuds
+db_user: dbuds
+db_password: "{{ vault_db_password | default('CHANGE_ME') }}"
+db_root_password: "{{ vault_db_root_password | default('CHANGE_ME_ROOT') }}"
+db_port: 3306
+mysql_repl_user: repl_user
+mysql_repl_password: "{{ vault_repl_password | default('CHANGE_ME_REPL') }}"
+
+# === Django ===
+django_settings_module: server.settings_ha
+django_secret_key: "{{ vault_django_secret_key | default('s5ky!7b5f#s35!e38xv%e-+iey6yi-#630x)kk3kk5_j8rie2*') }}"
+django_debug: "False"
+django_allowed_hosts: "{{ domain }},{{ vip }},localhost,127.0.0.1"
+
+# === Ports ===
+nginx_port: 8443
+haproxy_https_port: 443
+haproxy_stats_port: 9000
+
+# === Keepalived ===
+keepalived_vip: "{{ vip }}"
+keepalived_interface: eth0
+keepalived_vrid: 51
+keepalived_auth_pass: "{{ vault_keepalived_pass | default('UDS_HA') }}"
+
+# === Servers ===
+server01_ip: 192.168.1.101
+server02_ip: 192.168.1.102

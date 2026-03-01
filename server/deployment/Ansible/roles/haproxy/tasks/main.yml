@@ -1,0 +1,47 @@
+---
+- name: Install HAProxy
+  apt:
+    name: haproxy
+    state: present
+
+- name: Create HAProxy SSL directory
+  file:
+    path: /etc/haproxy/ssl
+    state: directory
+    owner: haproxy
+    group: haproxy
+    mode: "0700"
+
+- name: Concatenate SSL cert + key for HAProxy
+  shell: >
+    cat {{ ssl_cert_path }} {{ ssl_key_path }} > /etc/haproxy/ssl/pv-vds.tk.pem
+  args:
+    creates: /etc/haproxy/ssl/pv-vds.tk.pem
+  notify: restart haproxy
+
+- name: Set PEM permissions
+  file:
+    path: /etc/haproxy/ssl/pv-vds.tk.pem
+    mode: "0600"
+    owner: haproxy
+    group: haproxy
+
+- name: Allow HAProxy to bind to non-local IP (VIP)
+  sysctl:
+    name: net.ipv4.ip_nonlocal_bind
+    value: "1"
+    sysctl_set: yes
+    reload: yes
+
+- name: Deploy HAProxy config
+  template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    validate: "haproxy -f %s -c -q"
+  notify: restart haproxy
+
+- name: Enable and start HAProxy
+  systemd:
+    name: haproxy
+    enabled: yes
+    state: started

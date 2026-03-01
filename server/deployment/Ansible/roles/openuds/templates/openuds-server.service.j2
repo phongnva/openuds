@@ -1,0 +1,22 @@
+[Unit]
+Description=OpenUDS Server (Gunicorn + TaskManager)
+After=network.target mysql.service
+Requires=mysql.service
+
+[Service]
+Type=simple
+User={{ app_user }}
+Group={{ app_group }}
+RuntimeDirectory=openuds
+WorkingDirectory={{ src_dir }}
+EnvironmentFile=/etc/openuds/openuds.env
+ExecStart={{ app_dir }}/openuds-server.sh
+ExecStop=/bin/bash -c 'kill $(cat {{ socket_dir }}/gunicorn.pid) 2>/dev/null; kill $MAINPID 2>/dev/null'
+ExecReload=/bin/bash -c 'kill -HUP $(cat {{ socket_dir }}/gunicorn.pid) 2>/dev/null'
+KillMode=process
+Restart=on-failure
+RestartSec=5
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

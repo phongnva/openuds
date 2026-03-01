@@ -1,0 +1,7 @@
+---
+- include_tasks: install.yml
+- include_tasks: configure.yml
+- include_tasks: primary.yml
+  when: mysql_role == 'primary'
+- include_tasks: replica.yml
+  when: mysql_role == 'replica'

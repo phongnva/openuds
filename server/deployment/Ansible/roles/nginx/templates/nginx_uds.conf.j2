@@ -1,0 +1,65 @@
+upstream uds_server {
+    server unix:{{ socket_path }} fail_timeout=10s;
+}
+
+map $http_x_forwarded_proto $thescheme {
+    default $scheme;
+    https https;
+}
+
+server {
+    listen {{ nginx_port }} ssl http2;
+    server_name {{ domain }} {{ vip }} _;
+
+    ssl_certificate {{ ssl_cert_path }};
+    ssl_certificate_key {{ ssl_key_path }};
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_session_timeout 10m;
+    ssl_session_cache shared:SSL:10m;
+
+    # Security Headers
+    add_header Cache-Control "no-store" always;
+    add_header Content-Security-Policy "default-src 'self'; upgrade-insecure-requests; block-all-mixed-content; connect-src 'self'; img-src 'self' data:; frame-ancestors 'self'; form-action 'self'; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; script-src-elem 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self';" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    access_log /var/log/nginx/uds_access.log;
+    error_log /var/log/nginx/uds_error.log;
+
+    root {{ src_dir }};
+
+    gzip on;
+    gzip_proxied any;
+    gzip_types text/css text/javascript text/xml text/plain
+               application/javascript application/json;
+
+    location /favicon.ico {
+        alias {{ src_dir }}/uds/static/modern/img/favicon.ico;
+    }
+
+    location /uds/res/ {
+        autoindex off;
+        alias {{ static_dir }}/;
+    }
+
+    location / {
+        proxy_intercept_errors on;
+        try_files $uri @proxy_to_uds;
+    }
+
+    location @proxy_to_uds {
+        proxy_hide_header Content-Security-Policy;
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header X-XSS-Protection;
+        proxy_hide_header X-Content-Type-Options;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $thescheme;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_redirect off;
+        proxy_pass http://uds_server;
+    }
+}

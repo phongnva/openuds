@@ -1,0 +1,110 @@
+---
+- name: Sync source code from local machine to app directory
+  synchronize:
+    src: "../../../src/"
+    dest: "{{ src_dir }}/"
+    archive: yes
+    delete: yes
+    rsync_opts:
+      - "--exclude=__pycache__"
+      - "--exclude=*.pyc"
+
+- name: Sync requirements.txt from local machine
+  synchronize:
+    src: "../../../../requirements.txt"
+    dest: "{{ app_dir }}/requirements.txt"
+
+- name: Set ownership for synced directory
+  file:
+    path: "{{ src_dir }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    recurse: yes
+
+- name: Set ownership for requirements.txt
+  file:
+    path: "{{ app_dir }}/requirements.txt"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+
+- name: Create internal src/log directory for Django
+  file:
+    path: "{{ src_dir }}/log"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+
+- name: Create Python virtual environment
+  command: "python{{ python_version }} -m venv {{ venv_dir }}"
+  args:
+    creates: "{{ venv_dir }}/bin/activate"
+  become_user: "{{ app_user }}"
+
+- name: Upgrade pip in virtualenv
+  pip:
+    name: pip
+    state: latest
+    virtualenv: "{{ venv_dir }}"
+  become_user: "{{ app_user }}"
+
+- name: Install Python dependencies
+  shell: |
+    . {{ venv_dir }}/bin/activate
+    export MYSQLCLIENT_CFLAGS="-I/usr/include/mysql"
+    export MYSQLCLIENT_LDFLAGS="-L/usr/lib/x86_64-linux-gnu -lmysqlclient"
+    pip install -r {{ app_dir }}/requirements.txt
+  args:
+    executable: /bin/bash
+  become_user: "{{ app_user }}"
+
+- name: Copy settings.py from sample (if not exists)
+  copy:
+    src: "{{ src_dir }}/server/settings.py.sample"
+    dest: "{{ src_dir }}/server/settings.py"
+    remote_src: yes
+    owner: "{{ app_user }}"
+    force: no
+
+- name: Deploy HA settings
+  template:
+    src: settings_ha.py.j2
+    dest: "{{ src_dir }}/server/settings_ha.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+
+- name: Generate RSA key (if not exists)
+  shell: "openssl genrsa 2048 > {{ src_dir }}/server/rsa_key.pem"
+  args:
+    creates: "{{ src_dir }}/server/rsa_key.pem"
+  become_user: "{{ app_user }}"
+
+- name: Set RSA key permissions
+  file:
+    path: "{{ src_dir }}/server/rsa_key.pem"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600"
+
+- name: Deploy openuds-server wrapper script
+  template:
+    src: openuds-server.sh.j2
+    dest: "{{ app_dir }}/openuds-server.sh"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+
+- name: Deploy openuds-server systemd service
+  template:
+    src: openuds-server.service.j2
+    dest: /etc/systemd/system/openuds-server.service
+  notify:
+    - reload systemd
+    - restart openuds-server
+
+- name: Enable and start openuds-server
+  systemd:
+    name: openuds-server
+    enabled: yes
+    state: started
