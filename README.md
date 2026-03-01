@@ -54,3 +54,15 @@ To deploy OpenUDS in a production High Availability environment using Ansible:
    ```bash
    ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml
    ```
+
+Deploying Client Payloads
+=========================
+
+If you need to rebuild the OS Client installation programs (Windows `.msi`, MacOS `.pkg`, and Linux `.tar.gz`) or inject new client binaries into the backend server for users to download, an automation script is provided in the root directory:
+
+1. Execute the client synchronization script:
+   ```bash
+   ./update_clients.sh
+   ```
+
+2. The script will automatically compile the Linux binaries and copy all `.msi`, `.pkg`, and `.tar.gz` endpoints into the `server/src/uds/static/clients` HTTP serving directory. Once completed, your server proxy will automatically expose the new clients.
