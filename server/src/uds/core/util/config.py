@@ -701,7 +701,7 @@ class GlobalConfig:
     # Site display name & copyright info
     SITE_NAME: Config.Value = Config.section(Config.SectionType.CUSTOM).value(
         'Site name',
-        'UDS Enterprise',
+        'FSOFT Virtual Desktop',
         type=Config.FieldType.TEXT,
         help=_('Site display name'),
     )
@@ -713,7 +713,7 @@ class GlobalConfig:
     )
     SITE_COPYRIGHT_LINK: Config.Value = Config.section(Config.SectionType.CUSTOM).value(
         'Site copyright link',
-        'https://www.udsenterprise.com',
+        'https://www.fptsoftware.com',
         type=Config.FieldType.TEXT,
         help=_('Site copyright link'),
     )

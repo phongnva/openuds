@@ -1667,7 +1667,7 @@ msgstr "معرف العميل"
 
 #: auths/AzureAD_enterprise/authenticator.py:112
 #: services/Azure_enterprise/provider.py:57
-msgid "Obtained from App created on Azure for UDS Enterprise"
+msgid "Obtained from App created on Azure for FSOFT Virtual Desktop"
 msgstr ""
 "التي تم الحصول عليها من التطبيق التي تم إنشاؤها في أزور \"المؤسسة المصغرة\""
 
@@ -5211,8 +5211,8 @@ msgid "Access Key ID"
 msgstr "معرف مفتاح الوصول"
 
 #: services/AWS_enterprise/provider.py:44
-msgid "Obtained from user created on AWS IAM for UDS Enterprise"
-msgstr "تم الحصول عليها من مستخدم تم إنشاؤه على AWS IAM لـ UDS Enterprise"
+msgid "Obtained from user created on AWS IAM for FSOFT Virtual Desktop"
+msgstr "تم الحصول عليها من مستخدم تم إنشاؤه على AWS IAM لـ FSOFT Virtual Desktop"
 
 #: services/AWS_enterprise/provider.py:51
 msgid "Secret Access Key"

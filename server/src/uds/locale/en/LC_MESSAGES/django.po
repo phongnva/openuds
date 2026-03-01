@@ -1676,8 +1676,8 @@ msgstr "Client ID"
 
 #: auths/AzureAD_enterprise/authenticator.py:112
 #: services/Azure_enterprise/provider.py:57
-msgid "Obtained from App created on Azure for UDS Enterprise"
-msgstr "Obtained from App created on Azure for UDS Enterprise"
+msgid "Obtained from App created on Azure for FSOFT Virtual Desktop"
+msgstr "Obtained from App created on Azure for FSOFT Virtual Desktop"
 
 #: auths/AzureAD_enterprise/authenticator.py:118
 #: auths/OAuth2/authenticator.py:83 services/Azure_enterprise/provider.py:63
@@ -5220,8 +5220,8 @@ msgid "Access Key ID"
 msgstr "Access Key ID"
 
 #: services/AWS_enterprise/provider.py:44
-msgid "Obtained from user created on AWS IAM for UDS Enterprise"
-msgstr "Obtained from user created on AWS IAM for UDS Enterprise"
+msgid "Obtained from user created on AWS IAM for FSOFT Virtual Desktop"
+msgstr "Obtained from user created on AWS IAM for FSOFT Virtual Desktop"
 
 #: services/AWS_enterprise/provider.py:51
 msgid "Secret Access Key"
