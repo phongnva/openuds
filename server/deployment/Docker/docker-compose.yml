@@ -1,0 +1,50 @@
+services:
+  db:
+    image: mariadb:10.11
+    container_name: uds-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-dbuds}
+      MYSQL_USER: ${MYSQL_USER:-dbuds}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-PASSWORD}
+    volumes:
+      - uds_db_data:/var/lib/mysql
+    networks:
+      - uds-net
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  app:
+    build:
+      context: ../../
+      dockerfile: deployment/Docker/Dockerfile
+    container_name: uds-app
+    restart: always
+    env_file: docker.env
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uds_socket:/run/openuds
+      - uds_static:/app/src/static
+      - uds_certs:/app/certs
+    networks:
+      - uds-net
+
+networks:
+  uds-net:
+    driver: bridge
+
+volumes:
+  uds_db_data:
+  uds_socket:
+  uds_static:
+  uds_certs:

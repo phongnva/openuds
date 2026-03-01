@@ -1,0 +1,28 @@
+# Ignore version control
+.git
+.gitignore
+
+# Ignore tests and dev configs
+tests/
+samples/
+.pylintrc
+mypy.ini
+pyrightconfig.json
+pytest.ini
+coverage.ini
+.env
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+
+# IDE
+.vscode/
+.idea/
+
+# Docker deployment files (already handled via specific COPY)
+deployment/Docker/docker-compose.yml
+deployment/Docker/docker.env
+deployment/Docker/GUIDE_DEPLOYMENT.md
