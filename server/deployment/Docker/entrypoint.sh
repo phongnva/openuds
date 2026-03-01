@@ -38,7 +38,7 @@ fi
 RSA_KEY_FILE=/app/src/server/rsa_key.pem
 if [ ! -f "$RSA_KEY_FILE" ]; then
     echo "Generating new RSA key..."
-    openssl genrsa -traditional 2048 > "$RSA_KEY_FILE"
+    openssl genrsa 4096 > "$RSA_KEY_FILE"
     chown openuds:openuds "$RSA_KEY_FILE"
     chmod 600 "$RSA_KEY_FILE"
 fi
