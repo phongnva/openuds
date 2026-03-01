@@ -20,7 +20,7 @@
     - name: Verify app services
       systemd:
         name: "{{ item }}"
-        state: started
+        state: restarted
       loop:
         - openuds-server
         - nginx
