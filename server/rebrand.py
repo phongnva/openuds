@@ -78,6 +78,8 @@ def rebrand(base_dir):
     text_replacements = {
         "UDS Enterprise": "FSOFT Virtual Desktop",
         "Universal Desktop Services": "FSOFT Virtual Desktop",
+        "UDS Client": "FSOFT Virtual Desktop Client",
+        "UDS client": "FSOFT Virtual Desktop Client",
         "udsenterprise.com": "fptsoftware.com",
         "<title>Uds</title>": "<title>FSOFT Virtual Desktop</title>",
         "© UDS Enterprise": "© FSOFT Virtual Desktop",
