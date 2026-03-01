@@ -37,3 +37,20 @@ To run OpenUDS server using Docker Compose:
    ```
 
 Once started, the server will be available at `https://localhost/`.
+
+Running with Ansible (High Availability)
+========================================
+
+To deploy OpenUDS in a production High Availability environment using Ansible:
+
+1. Navigate to the Ansible deployment directory:
+   ```bash
+   cd server/deployment/Ansible
+   ```
+
+2. Follow the step-by-step instructions in the [Ansible README](server/deployment/Ansible/README.md) to configure your inventory, variables, and SSL certificates.
+
+3. Run the full deployment playbook:
+   ```bash
+   ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml
+   ```
