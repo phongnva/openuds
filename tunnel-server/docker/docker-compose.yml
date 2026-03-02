@@ -1,0 +1,24 @@
+services:
+  tunnel:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+    container_name: uds-tunnel
+    restart: always
+    env_file: .env
+    ports:
+      - "${TUNNEL_PORT:-8443}:8443"
+    volumes:
+      # SSL certificates (mount your certs here)
+      - ./ssl:/etc/openuds-tunnel/ssl
+      # Optional: custom add-tunnel-to-db.sh
+      # - ./add-tunnel-to-db.sh:/usr/local/bin/add-tunnel-to-db.sh
+    networks:
+      - uds-net
+
+networks:
+  uds-net:
+    driver: bridge
+    # If you need to connect to an existing UDS server network:
+    # external: true
+    # name: uds-server_uds-net
