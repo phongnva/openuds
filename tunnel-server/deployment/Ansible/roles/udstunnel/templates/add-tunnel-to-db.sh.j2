@@ -1,0 +1,16 @@
+#!/bin/bash
+# add-tunnel-to-db.sh
+# Managed by Ansible — do not edit manually
+
+DATE=$(date +%F)
+TUNNEL_IP={{ ansible_host }}
+TUNNEL_USER=root
+TUNNEL_HOST={{ tunnel_host | default(ansible_host) }}
+TUNNEL_TOKEN={{ tunnel_token }}
+MYSQL_DB={{ db_name }}
+MYSQL_TABLE=uds_tunneltoken
+MYSQL_USER={{ db_user }}
+MYSQL_PASS={{ db_password }}
+
+echo "adding tunnel token to database"
+mysql -u${MYSQL_USER} -p${MYSQL_PASS} -h {{ tunnel_db_host | default(server01_ip) }} -e "INSERT INTO ${MYSQL_DB}.${MYSQL_TABLE} VALUES (ID , '${TUNNEL_USER}' , '${TUNNEL_IP}' , '${TUNNEL_IP}' , '${TUNNEL_HOST}' , '${TUNNEL_TOKEN}', '${DATE}');"

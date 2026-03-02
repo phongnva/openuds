@@ -1,0 +1,53 @@
+# UDS Tunnel Server Configuration
+# Managed by Ansible — do not edit manually
+
+# Pid file
+pidfile = /var/run/udstunnel.pid
+
+# Log level: DEBUG, INFO, WARN, ERROR
+loglevel = {{ tunnel_log_level | default('INFO') }}
+
+# Log file
+logfile = /var/log/openuds-tunnel/udstunnel.log
+
+# Max log size before rotating (MB)
+logsize = 20M
+
+# Number of backup logs to keep
+lognumber = 3
+
+# Listen address
+address = 0.0.0.0
+
+# Listening port
+port = {{ tunnel_port }}
+
+# Force IPv6
+ipv6 = false
+
+# Number of workers (0 = auto-detect CPU cores)
+workers = 0
+
+# SSL configuration
+ssl_certificate = {{ tunnel_ssl_cert }}
+ssl_certificate_key = {{ tunnel_ssl_key }}
+ssl_min_tls_version = 1.2
+ssl_ciphers = ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384
+
+# UDS Server connection
+uds_server = {{ tunnel_uds_server }}
+uds_token = {{ tunnel_token }}
+uds_timeout = 10
+uds_verify_ssl = {{ tunnel_uds_verify_ssl | default('false') }}
+
+# Command timeout (seconds)
+command_timeout = 3
+
+# Secret for admin commands (stats)
+secret = {{ tunnel_secret | default('MySecret') }}
+
+# Allowed IPs for admin commands
+allow = 127.0.0.1
+
+# Use uvloop for better performance
+use_uvloop = true

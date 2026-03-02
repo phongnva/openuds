@@ -1,0 +1,41 @@
+---
+# =============================================================================
+# OpenUDS Tunnel Server - Deployment Playbook
+# =============================================================================
+# Usage:
+#   cd tunnel-server/deployment/Ansible
+#   ansible-playbook playbooks/deploy_tunnel.yml
+#   ansible-playbook playbooks/deploy_tunnel.yml --check --diff
+# =============================================================================
+
+- name: Deploy OpenUDS Tunnel Server
+  hosts: tunnel_servers
+  become: yes
+
+  roles:
+    - udstunnel
+
+  post_tasks:
+    - name: Verify udstunnel service is running
+      systemd:
+        name: udstunnel
+        state: started
+
+    - name: Check tunnel port is listening
+      wait_for:
+        port: "{{ tunnel_port }}"
+        timeout: 10
+      register: port_check
+      ignore_errors: yes
+
+    - name: Display deployment info
+      debug:
+        msg: |
+          ========================================
+          UDS Tunnel Server Deployment Complete!
+          ========================================
+          Node: {{ inventory_hostname }} ({{ ansible_host }})
+          Port: {{ tunnel_port }}
+          UDS Server: {{ tunnel_uds_server }}
+          Port Listening: {{ 'YES' if port_check is success else 'NO (check SSL certs)' }}
+          ========================================

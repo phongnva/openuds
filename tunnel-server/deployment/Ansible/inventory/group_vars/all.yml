@@ -1,0 +1,34 @@
+# =============================================================================
+# UDS Tunnel Server - Shared Variables
+# =============================================================================
+
+# === App ===
+python_version: "3.12"
+
+# === Domain & SSL ===
+domain: pv-vds.tk
+ssl_cert_path: /etc/ssl/certs/pv-vds.tk.crt
+ssl_key_path: /etc/ssl/private/pv-vds.tk.key
+
+# === Database ===
+db_name: dbuds
+db_user: dbuds
+db_password: "{{ vault_db_password | default('CHANGE_ME') }}"
+
+# === Tunnel Server ===
+tunnel_port: 8443
+tunnel_app_dir: /opt/openuds-tunnel
+tunnel_src_dir: "{{ tunnel_app_dir }}/src"
+tunnel_venv_dir: "{{ tunnel_app_dir }}/venv"
+tunnel_token: "{{ vault_tunnel_token | default('CHANGE_ME') }}"
+tunnel_ssl_cert: /etc/openuds-tunnel/ssl/server.pem
+tunnel_ssl_key: /etc/openuds-tunnel/ssl/server.key
+tunnel_uds_server: "https://{{ domain }}/uds/rest/tunnel/ticket"
+tunnel_uds_verify_ssl: "false"
+tunnel_log_level: INFO
+tunnel_secret: "{{ vault_tunnel_secret | default('MySecret') }}"
+tunnel_db_host: 103.131.85.183
+
+# === Servers ===
+server01_ip: 103.131.85.183
+server02_ip: 103.131.85.163

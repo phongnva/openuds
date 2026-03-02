@@ -180,7 +180,9 @@ async def tunnel_proc_async(pipe: 'Connection', cfg: config.ConfigurationType) -
     #    task.cancel()
 
     # Wait for all tasks to finish
-    await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
+    pending_tasks = [t for t in tasks if not t.done()]
+    if pending_tasks:
+        await asyncio.wait(pending_tasks, return_when=asyncio.ALL_COMPLETED)
 
     logger.info('PROCESS %s stopped', os.getpid())
 

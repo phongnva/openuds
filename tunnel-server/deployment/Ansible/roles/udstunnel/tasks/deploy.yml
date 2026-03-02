@@ -1,0 +1,110 @@
+---
+# =============================================================================
+# UDS Tunnel Server - Deployment Tasks
+# =============================================================================
+
+- name: Install system dependencies for tunnel
+  apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-venv
+      - openssl
+      - ca-certificates
+      - default-mysql-client
+    state: present
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Create tunnel directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ tunnel_app_dir }}"
+    - "{{ tunnel_src_dir }}"
+    - /etc/openuds-tunnel
+    - /etc/openuds-tunnel/ssl
+    - /var/log/openuds-tunnel
+
+- name: Sync tunnel source code from local machine
+  synchronize:
+    src: "../../../../src/"
+    dest: "{{ tunnel_src_dir }}/"
+    archive: yes
+    delete: yes
+    rsync_opts:
+      - "--exclude=__pycache__"
+      - "--exclude=*.pyc"
+
+- name: Sync requirements.txt from local machine
+  synchronize:
+    src: "../../../../requirements.txt"
+    dest: "{{ tunnel_app_dir }}/requirements.txt"
+
+- name: Set ownership for tunnel directory
+  file:
+    path: "{{ tunnel_app_dir }}"
+    owner: root
+    group: root
+    recurse: yes
+
+- name: Create Python virtual environment
+  command: "python{{ python_version }} -m venv {{ tunnel_venv_dir }}"
+  args:
+    creates: "{{ tunnel_venv_dir }}/bin/activate"
+
+- name: Upgrade pip in virtualenv
+  pip:
+    name: pip
+    state: latest
+    virtualenv: "{{ tunnel_venv_dir }}"
+
+- name: Install Python dependencies
+  pip:
+    requirements: "{{ tunnel_app_dir }}/requirements.txt"
+    virtualenv: "{{ tunnel_venv_dir }}"
+
+- name: Deploy udstunnel.conf
+  template:
+    src: udstunnel.conf.j2
+    dest: /etc/openuds-tunnel/udstunnel.conf
+    owner: root
+    group: root
+    mode: "0640"
+  notify:
+    - restart udstunnel
+
+- name: Deploy add-tunnel-to-db.sh
+  template:
+    src: add-tunnel-to-db.sh.j2
+    dest: /usr/local/bin/add-tunnel-to-db.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Generate DH parameters (may take a few minutes)
+  command: openssl dhparam -out /etc/openuds-tunnel/ssl/openuds-tunnel.dh 2048
+  args:
+    creates: /etc/openuds-tunnel/ssl/openuds-tunnel.dh
+
+- name: Deploy udstunnel systemd service
+  template:
+    src: udstunnel.service.j2
+    dest: /etc/systemd/system/udstunnel.service
+  notify:
+    - reload systemd
+    - restart udstunnel
+
+- name: Enable and start udstunnel service
+  systemd:
+    name: udstunnel
+    enabled: yes
+    state: started
+
+- name: Register tunnel in database
+  command: /usr/local/bin/add-tunnel-to-db.sh
+  register: tunnel_db_result
+  changed_when: "'adding tunnel token' in tunnel_db_result.stdout"
+  failed_when: false
