@@ -68,6 +68,14 @@ def tunnel_main(args: 'argparse.Namespace') -> None:
     )
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    # Set larger socket buffers for bursty RDP traffic
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, cfg.socket_buffer_size)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, cfg.socket_buffer_size)
+    # Enable TCP Fast Open (saves 1 RTT on initial connection)
+    try:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_FASTOPEN, 256)
+    except (AttributeError, OSError) as e:
+        logger.warning('TCP_FASTOPEN not available: %s', e)
     # We will not reuse port, we only want a UDS tunnel server running on a port
     # but this may change on future...
     # try:

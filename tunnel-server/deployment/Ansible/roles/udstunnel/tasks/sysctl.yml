@@ -1,0 +1,118 @@
+---
+# =============================================================================
+# OS-level Kernel Tuning for RDP Tunnel Performance
+# =============================================================================
+
+# --- Congestion Control: Google BBR ---
+- name: Set TCP congestion control to BBR
+  sysctl:
+    name: net.ipv4.tcp_congestion_control
+    value: "bbr"
+    sysctl_set: yes
+    reload: yes
+  ignore_errors: true
+
+- name: Set default queueing discipline to fq (required for BBR)
+  sysctl:
+    name: net.core.default_qdisc
+    value: "fq"
+    sysctl_set: yes
+    reload: yes
+  ignore_errors: true
+
+# --- MTU Probing ---
+- name: Enable TCP MTU probing (avoids PMTUD black holes)
+  sysctl:
+    name: net.ipv4.tcp_mtu_probing
+    value: "1"
+    sysctl_set: yes
+    reload: yes
+
+# --- Buffer Sizes ---
+- name: Set max receive buffer size (16MB)
+  sysctl:
+    name: net.core.rmem_max
+    value: "16777216"
+    sysctl_set: yes
+    reload: yes
+
+- name: Set max send buffer size (16MB)
+  sysctl:
+    name: net.core.wmem_max
+    value: "16777216"
+    sysctl_set: yes
+    reload: yes
+
+- name: Set TCP receive buffer (min/default/max)
+  sysctl:
+    name: net.ipv4.tcp_rmem
+    value: "4096 262144 16777216"
+    sysctl_set: yes
+    reload: yes
+
+- name: Set TCP send buffer (min/default/max)
+  sysctl:
+    name: net.ipv4.tcp_wmem
+    value: "4096 262144 16777216"
+    sysctl_set: yes
+    reload: yes
+
+# --- Jitter & Packet Loss Recovery ---
+- name: Enable TCP SACK (selective ACKs)
+  sysctl:
+    name: net.ipv4.tcp_sack
+    value: "1"
+    sysctl_set: yes
+    reload: yes
+
+- name: Enable TCP window scaling
+  sysctl:
+    name: net.ipv4.tcp_window_scaling
+    value: "1"
+    sysctl_set: yes
+    reload: yes
+
+- name: Enable TCP timestamps (better RTT estimation)
+  sysctl:
+    name: net.ipv4.tcp_timestamps
+    value: "1"
+    sysctl_set: yes
+    reload: yes
+
+# --- Fast Connection Setup ---
+- name: Enable TCP Fast Open (client + server)
+  sysctl:
+    name: net.ipv4.tcp_fastopen
+    value: "3"
+    sysctl_set: yes
+    reload: yes
+  ignore_errors: true
+
+- name: Enable TIME_WAIT socket reuse
+  sysctl:
+    name: net.ipv4.tcp_tw_reuse
+    value: "1"
+    sysctl_set: yes
+    reload: yes
+
+# --- Keepalive (detect dead connections faster) ---
+- name: Set TCP keepalive time (60s idle)
+  sysctl:
+    name: net.ipv4.tcp_keepalive_time
+    value: "60"
+    sysctl_set: yes
+    reload: yes
+
+- name: Set TCP keepalive interval (10s)
+  sysctl:
+    name: net.ipv4.tcp_keepalive_intvl
+    value: "10"
+    sysctl_set: yes
+    reload: yes
+
+- name: Set TCP keepalive probes (6 probes = 60s total)
+  sysctl:
+    name: net.ipv4.tcp_keepalive_probes
+    value: "6"
+    sysctl_set: yes
+    reload: yes

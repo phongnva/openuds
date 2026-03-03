@@ -73,6 +73,10 @@ class ConfigurationType:
 
     use_uvloop: bool
 
+    # Performance tuning
+    buffer_size: int
+    socket_buffer_size: int
+
     def __str__(self) -> str:
         return 'Configuration: \n' + '\n'.join(
             f'{k}={v}'
@@ -138,6 +142,8 @@ def read(cfg_file: typing.Optional[typing.Union[typing.TextIO, str]] = None) -> 
             secret=secret,
             allow=set(uds.get('allow', '127.0.0.1').split(',')),
             use_uvloop=uds.get('use_uvloop', 'true').lower() == 'true',
+            buffer_size=int(uds.get('buffer_size', '65536')),
+            socket_buffer_size=int(uds.get('socket_buffer_size', '262144')),
         )
     except ValueError as e:
         raise Exception(

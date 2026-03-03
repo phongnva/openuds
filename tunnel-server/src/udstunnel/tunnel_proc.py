@@ -130,7 +130,17 @@ async def tunnel_proc_async(pipe: 'Connection', cfg: config.ConfigurationType) -
             except Exception as e:
                 logger.exception('Setting ciphers failed: %s. Using defaults', e)
 
-        context.set_ecdh_curve('secp384r1')
+        # Use faster X25519 ECDH curve for key exchange (~3x faster than secp384r1)
+        try:
+            context.set_ecdh_curve('X25519')
+        except (ValueError, ssl.SSLError):
+            logger.info('X25519 not available, falling back to secp384r1')
+            context.set_ecdh_curve('secp384r1')
+
+        # Disable TLS compression (reduces latency, prevents CRIME attack)
+        context.options |= ssl.OP_NO_COMPRESSION
+        # Enable TLS session tickets for faster reconnects (saves 1 RTT)
+        context.options &= ~ssl.OP_NO_TICKET
         try:
             while True:
                 address: typing.Optional[typing.Tuple[str, int]] = ('', 0)

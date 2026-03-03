@@ -40,8 +40,10 @@ LOGFORMAT: typing.Final[str] = (
     else '%(levelname)s %(asctime)s %(name)s:%(funcName)s %(lineno)d %(message)s'
 )
 
-# MAX Length of read buffer for proxyed requests
-BUFFER_SIZE: typing.Final[int] = 1024 * 16
+# MAX Length of read buffer for proxyed requests (64KB optimal for RDP bitmap frames)
+BUFFER_SIZE: typing.Final[int] = 1024 * 64
+# Socket send/receive buffer size (256KB for bursty RDP traffic)
+SOCKET_BUFFER_SIZE: typing.Final[int] = 1024 * 256
 # Handshake for conversation start
 HANDSHAKE_V1: typing.Final[bytes] = b'\x5AMGB\xA5\x01\x00'
 # Ticket length

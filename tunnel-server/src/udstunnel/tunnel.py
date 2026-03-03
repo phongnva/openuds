@@ -158,13 +158,24 @@ class TunnelProtocol(asyncio.Protocol):
                     if ':' in self.destination[0] or (self.owner.cfg.ipv6 and '.' not in self.destination[0])
                     else socket.AF_INET
                 )
+                # Create backend socket with performance tuning
+                backend_sock = socket.socket(family, socket.SOCK_STREAM)
+                backend_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)  # Disable Nagle for RDP
+                buf_size = self.owner.cfg.socket_buffer_size
+                backend_sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buf_size)
+                backend_sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, buf_size)
+                await loop.sock_connect(backend_sock, (self.destination[0], self.destination[1]))
                 (_, self.client) = await loop.create_connection(
                     lambda: tunnel_client.TunnelClientProtocol(self),
-                    self.destination[0],
-                    self.destination[1],
-                    family=family,
+                    sock=backend_sock,
                 )
 
+                # Set write buffer limits on backend transport for bursty RDP traffic
+                if self.client and self.client.transport:
+                    self.client.transport.set_write_buffer_limits(
+                        high=self.owner.cfg.socket_buffer_size,
+                        low=self.owner.cfg.socket_buffer_size // 4,
+                    )
                 # Resume reading
                 self.transport.resume_reading()
                 # send OK to client
@@ -332,6 +343,13 @@ class TunnelProtocol(asyncio.Protocol):
         self.set_timeout(self.owner.cfg.command_timeout)
 
         self.transport = typing.cast('asyncio.transports.Transport', transport)
+
+        # Set write buffer limits on TLS transport for bursty RDP traffic
+        self.transport.set_write_buffer_limits(
+            high=self.owner.cfg.socket_buffer_size,
+            low=self.owner.cfg.socket_buffer_size // 4,
+        )
+
         # Get source
         self.source = self.transport.get_extra_info('peername')
         logger.debug('Connection made (%s): %s', self.tunnel_id, self.source)
@@ -390,6 +408,23 @@ class TunnelProtocol(asyncio.Protocol):
     def pretty_destination(self) -> str:
         return TunnelProtocol.pretty_address(self.destination)
 
+    # Class-level shared aiohttp session for connection reuse (avoids TCP+TLS setup per ticket)
+    _http_session: typing.ClassVar[typing.Optional[aiohttp.ClientSession]] = None
+
+    @classmethod
+    def _get_http_session(cls) -> aiohttp.ClientSession:
+        if cls._http_session is None or cls._http_session.closed:
+            connector = aiohttp.TCPConnector(
+                limit=100,
+                ttl_dns_cache=300,
+                enable_cleanup_closed=True,
+            )
+            cls._http_session = aiohttp.ClientSession(
+                headers={'User-Agent': consts.USER_AGENT},
+                connector=connector,
+            )
+        return cls._http_session
+
     @staticmethod
     async def _read_from_uds(
         cfg: config.ConfigurationType,
@@ -405,13 +440,12 @@ class TunnelProtocol(asyncio.Protocol):
             options: typing.Dict[str, typing.Any] = {'timeout': cfg.uds_timeout}
             if cfg.uds_verify_ssl is False:
                 options['ssl'] = False
-            # Requests url with aiohttp
-
-            async with aiohttp.ClientSession(headers={'User-Agent': consts.USER_AGENT}) as session:
-                async with session.get(url, **options) as r:
-                    if not r.ok:
-                        raise Exception(await r.text())
-                    return await r.json()
+            # Reuse shared session for connection pooling
+            session = TunnelProtocol._get_http_session()
+            async with session.get(url, **options) as r:
+                if not r.ok:
+                    raise Exception(await r.text())
+                return await r.json()
         except Exception as e:
             raise Exception(f'TICKET COMMS ERROR: {ticket.decode()} {msg} {e!s}') from e
 
