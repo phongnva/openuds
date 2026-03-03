@@ -51,9 +51,25 @@ To deploy the tunnel server:
    ansible-playbook playbooks/deploy_tunnel.yml
    ```
 
+## Performance Tuning
+
+The role includes OS-level kernel tuning via sysctl (automatically applied):
+- **BBR** congestion control for lower latency
+- **MTU probing** to auto-discover optimal path MTU
+- **16MB kernel buffers** for bursty RDP traffic
+- **TCP Fast Open** to save 1 RTT
+- **SACK** for faster packet loss recovery
+- **60s keepalive** to detect dead connections faster
+
+Application-level tuning is configurable in `udstunnel.conf`:
+```ini
+buffer_size = 65536       # Relay buffer (64KB)
+socket_buffer_size = 262144  # Socket buffer (256KB)
+```
+
 ## Managing the Service
 
-Once deployed, the tunnel server runs as a standard systemd service. You can manage it on the target machine with:
+Once deployed, the tunnel server runs as a standard systemd service:
 
 ```bash
 sudo systemctl status udstunnel
@@ -61,7 +77,7 @@ sudo systemctl restart udstunnel
 sudo journalctl -u udstunnel -f
 ```
 
-Configuration and logs are located at:
+Configuration and logs:
 - Config: `/etc/openuds-tunnel/udstunnel.conf`
 - Logs: `/var/log/openuds-tunnel/udstunnel.log`
 - Code / Virtualenv: `/opt/openuds-tunnel/`
