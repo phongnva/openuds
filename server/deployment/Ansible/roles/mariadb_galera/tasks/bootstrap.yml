@@ -1,0 +1,23 @@
+---
+- name: Check current Galera cluster status on bootstrap node
+  command: >-
+    {{ galera_mysql_cli }} -Nse "SHOW STATUS LIKE 'wsrep_cluster_status';"
+  register: galera_cluster_status_check
+  changed_when: false
+  failed_when: false
+  when: galera_bootstrap | bool
+
+- name: Decide whether Galera bootstrap is needed
+  set_fact:
+    galera_should_bootstrap: "{{ (galera_bootstrap | bool) and ('Primary' not in (galera_cluster_status_check.stdout | default(''))) }}"
+
+- name: Bootstrap Galera cluster on designated bootstrap node
+  command: "{{ galera_bootstrap_command }}"
+  when: galera_should_bootstrap | bool
+
+- name: Ensure Galera service is enabled and running after bootstrap check
+  systemd:
+    name: "{{ galera_service_name }}"
+    enabled: true
+    state: started
+  when: galera_bootstrap | bool

@@ -13,7 +13,7 @@
 
   roles:
     - common
-    - mysql
+    - mariadb_galera
     - openuds
     - nginx
     - haproxy
