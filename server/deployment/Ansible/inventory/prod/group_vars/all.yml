@@ -55,6 +55,21 @@ django_allowed_hosts: "*"
 nginx_port: 8443
 haproxy_https_port: 443
 haproxy_stats_port: 9000
+haproxy_mysql_port: 3306
+
+# === HAProxy MariaDB/Galera ===
+haproxy_mysql_balance: leastconn
+haproxy_mysql_check_user: "{{ mysql_healthcheck_user | default('haproxy_check') }}"
+haproxy_mysql_use_external_check: false
+haproxy_mysql_external_check_path: /usr/local/bin
+haproxy_mysql_external_check_command: /usr/local/bin/galera-wsrep-check.sh
+haproxy_mysql_nodes:
+  - name: mariadb-node01
+    host: "{{ server01_ip }}"
+    port: "{{ db_port }}"
+  - name: mariadb-node02
+    host: "{{ server02_ip }}"
+    port: "{{ db_port }}"
 
 # === Keepalived ===
 keepalived_vip: "{{ vip }}"
