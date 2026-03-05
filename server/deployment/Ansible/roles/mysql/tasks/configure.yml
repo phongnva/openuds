@@ -1,12 +1,66 @@
 ---
-- name: Deploy MySQL config
+- name: Deploy MariaDB Galera config
   template:
     src: mysqld.cnf.j2
-    dest: /etc/mysql/mysql.conf.d/mysqld.cnf
+    dest: /etc/mysql/mariadb.conf.d/60-galera.cnf
     owner: root
     group: root
     mode: "0644"
   notify: restart mysql
+
+- name: Check if galera state file exists
+  stat:
+    path: /var/lib/mysql/grastate.dat
+  register: galera_state_file
+
+- name: Read grastate.dat
+  slurp:
+    src: /var/lib/mysql/grastate.dat
+  register: galera_state_raw
+  when: galera_state_file.stat.exists
+
+- name: Parse safe_to_bootstrap flag
+  set_fact:
+    galera_safe_to_bootstrap: "{{ (galera_state_raw.content | b64decode | regex_search('safe_to_bootstrap:\\s*1')) is not none }}"
+  when: galera_state_file.stat.exists
+
+- name: Check MariaDB service state
+  command: systemctl is-active {{ mysql_service_name }}
+  register: mysql_service_status
+  changed_when: false
+  failed_when: false
+
+- name: Refuse unsafe bootstrap node
+  fail:
+    msg: >-
+      {{ inventory_hostname }} is marked as galera_bootstrap_node but safe_to_bootstrap is not 1.
+      Bootstrap on the most advanced node first (see grastate.dat / wsrep_recover output).
+  when:
+    - galera_bootstrap_node | bool
+    - galera_state_file.stat.exists
+    - not galera_safe_to_bootstrap | default(false)
+    - mysql_service_status.rc != 0
+
+- name: Bootstrap Galera cluster on bootstrap node
+  command: galera_new_cluster
+  when:
+    - galera_bootstrap_node | bool
+    - mysql_service_status.rc != 0
+  register: galera_bootstrap
+  changed_when: galera_bootstrap.rc == 0
+
+- name: Start MariaDB on non-bootstrap nodes
+  systemd:
+    name: "{{ mysql_service_name }}"
+    state: started
+  when:
+    - not (galera_bootstrap_node | bool)
+    - mysql_service_status.rc != 0
+
+- name: Ensure MariaDB is started
+  systemd:
+    name: "{{ mysql_service_name }}"
+    state: started
 
 - name: Set root password
   mysql_user:
@@ -18,20 +72,4 @@
     login_unix_socket: /var/run/mysqld/mysqld.sock
     state: present
   no_log: true
-  ignore_errors: true
-
-- name: Force restart MySQL to apply config before replication setup
-  systemd:
-    name: mysql
-    state: restarted
-
-- name: Dynamically transition GTID mode ON
-  shell: |
-    mysql -u root -p"{{ db_root_password }}" -e "
-    SET @@GLOBAL.ENFORCE_GTID_CONSISTENCY = WARN;
-    SET @@GLOBAL.ENFORCE_GTID_CONSISTENCY = ON;
-    SET @@GLOBAL.GTID_MODE = OFF_PERMISSIVE;
-    SET @@GLOBAL.GTID_MODE = ON_PERMISSIVE;
-    SET @@GLOBAL.GTID_MODE = ON;
-    "
   ignore_errors: true

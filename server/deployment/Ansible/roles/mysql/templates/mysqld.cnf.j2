@@ -1,24 +1,22 @@
 [mysqld]
-server-id = {{ mysql_server_id }}
 bind-address = 0.0.0.0
 port = {{ db_port }}
 
-# Binary logging for replication
-log-bin = mysql-bin
-binlog-format = ROW
-binlog-do-db = {{ db_name }}
-gtid_mode = ON
-enforce_gtid_consistency = ON
-log-slave-updates = ON
+# Required for Galera
+binlog_format = ROW
+default_storage_engine = InnoDB
+innodb_autoinc_lock_mode = 2
 
-# Performance
-max_connections = 200
-innodb_buffer_pool_size = 512M
+# Galera settings
+wsrep_on = ON
+wsrep_provider = /usr/lib/galera/libgalera_smm.so
+wsrep_cluster_name = "{{ galera_cluster_name }}"
+wsrep_cluster_address = "gcomm://{{ galera_cluster_nodes | join(',') }}"
+wsrep_node_name = "{{ inventory_hostname }}"
+wsrep_node_address = "{{ ansible_host }}"
+wsrep_sst_method = {{ galera_sst_method }}
+wsrep_sst_auth = "{{ galera_sst_user }}:{{ galera_sst_password }}"
+
+# Better default durability/performance for production
 innodb_flush_log_at_trx_commit = 1
-transaction-isolation = READ-COMMITTED
-
-{% if mysql_role == 'replica' %}
-# Replica settings
-read-only = ON
-relay-log = relay-bin
-{% endif %}
+max_connections = 200

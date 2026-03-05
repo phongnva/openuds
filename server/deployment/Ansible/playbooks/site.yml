@@ -25,7 +25,7 @@
         name: "{{ item }}"
         state: started
       loop:
-        - mysql
+        - "{{ mysql_service_name | default('mariadb') }}"
         - openuds-server
         - nginx
         - haproxy
@@ -38,7 +38,7 @@
           OpenUDS HA Deployment Complete!
           ========================================
           Node: {{ inventory_hostname }} ({{ ansible_host }})
-          Role: {{ 'PRIMARY' if mysql_role == 'primary' else 'REPLICA' }}
+          Role: {{ 'BOOTSTRAP' if galera_bootstrap_node | default(false) else 'JOINER' }}
           Keepalived: {{ keepalived_state }}
           VIP: {{ keepalived_vip }}
           Domain: {{ domain }}

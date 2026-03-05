@@ -25,14 +25,20 @@ ssl_key_path: /etc/ssl/private/dev.pv-vds.tk.key
 ssl_pem_path: /etc/ssl/private/dev.pv-vds.tk.pem
 ssl_use_pem: false
 
-# === Database ===
+# === Database / Galera ===
 db_name: dbuds
 db_user: dbuds
 db_password: "{{ vault_db_password | default('CHANGE_ME') }}"
 db_root_password: "{{ vault_db_root_password | default('CHANGE_ME_ROOT') }}"
 db_port: 3306
-mysql_repl_user: repl_user
-mysql_repl_password: "{{ vault_repl_password | default('CHANGE_ME_REPL') }}"
+mysql_service_name: mariadb
+galera_cluster_name: openuds_galera
+galera_sst_method: mariabackup
+galera_sst_user: sst_user
+galera_sst_password: "{{ vault_galera_sst_password | default('CHANGE_ME_SST') }}"
+galera_cluster_nodes:
+  - "{{ server01_ip }}"
+  - "{{ server02_ip }}"
 
 # === Django ===
 django_settings_module: server.settings_ha

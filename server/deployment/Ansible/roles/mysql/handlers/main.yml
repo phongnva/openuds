@@ -1,5 +1,5 @@
 ---
 - name: restart mysql
   systemd:
-    name: mysql
+    name: "{{ mysql_service_name }}"
     state: restarted

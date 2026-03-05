@@ -1,15 +1,17 @@
 ---
-- name: Install MySQL 8.0
+- name: Install MariaDB + Galera
   apt:
     name:
-      - mysql-server-8.0
-      - mysql-client-8.0
+      - mariadb-server
+      - mariadb-client
+      - galera-4
+      - rsync
+      - socat
       - python3-mysqldb
       - python3-pymysql
     state: present
 
-- name: Start and enable MySQL
+- name: Ensure MariaDB service is enabled
   systemd:
-    name: mysql
-    state: started
+    name: "{{ mysql_service_name }}"
     enabled: yes

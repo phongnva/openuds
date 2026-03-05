@@ -17,12 +17,12 @@
     state: present
   no_log: true
 
-- name: Create replication user
+- name: Create Galera SST user
   mysql_user:
-    name: "{{ mysql_repl_user }}"
-    password: "{{ mysql_repl_password }}"
+    name: "{{ galera_sst_user }}"
+    password: "{{ galera_sst_password }}"
     host: "%"
-    priv: "*.*:REPLICATION SLAVE,REPLICATION CLIENT"
+    priv: "*.*:RELOAD,LOCK TABLES,PROCESS,REPLICATION CLIENT"
     login_user: root
     login_password: "{{ db_root_password }}"
     state: present
