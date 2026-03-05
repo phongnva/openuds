@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Ensure HAProxy service is healthy.
+systemctl is-active --quiet haproxy
+
+# Ensure HAProxy is actively listening on HTTPS VIP port.
+ss -lnt '( sport = :443 )' | awk 'NR>1 {found=1} END {exit found ? 0 : 1}'
