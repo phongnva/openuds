@@ -3,13 +3,9 @@ server-id = {{ mysql_server_id }}
 bind-address = 0.0.0.0
 port = {{ db_port }}
 
-# Binary logging for replication/Galera compatibility
+# Binary logging for Galera compatibility
 log-bin = mysql-bin
 binlog_format = ROW
-binlog-do-db = {{ db_name }}
-gtid_mode = ON
-enforce_gtid_consistency = ON
-log-slave-updates = ON
 default_storage_engine = InnoDB
 innodb_autoinc_lock_mode = 2
 
@@ -26,11 +22,10 @@ wsrep_sst_auth = "{{ galera_sst_user }}:{{ galera_sst_password }}"
 # Performance
 max_connections = 200
 innodb_buffer_pool_size = 512M
-innodb_flush_log_at_trx_commit = 1
+innodb_flush_log_at_trx_commit = 2
+innodb_log_file_size = 256M
 transaction-isolation = READ-COMMITTED
 
-{% if mysql_role == 'replica' %}
-# Replica settings
-read-only = ON
-relay-log = relay-bin
-{% endif %}
+# Galera safety: reject queries when not in PRIMARY state
+wsrep_reject_queries = NONE
+wsrep_log_conflicts = ON

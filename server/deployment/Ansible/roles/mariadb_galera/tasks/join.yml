@@ -1,4 +1,19 @@
 ---
+# =============================================================================
+# Galera Join — runs on non-bootstrap (joiner) nodes
+# Waits for bootstrap node to be ready, then starts MariaDB normally.
+# MariaDB will connect to gcomm://nodes and sync via IST/SST.
+# =============================================================================
+
+# --- Step 1: Ensure MariaDB is stopped ---
+- name: Ensure MariaDB is stopped on joiner node
+  systemd:
+    name: "{{ galera_service_name }}"
+    state: stopped
+  when: not (galera_bootstrap | bool)
+  ignore_errors: true
+
+# --- Step 2: Wait for bootstrap node to be in Primary state ---
 - name: Wait for bootstrap node to report Primary cluster state
   command: >-
     {{ galera_mysql_cli }} -Nse "SHOW STATUS LIKE 'wsrep_cluster_status';"
@@ -6,14 +21,36 @@
   changed_when: false
   failed_when: false
   until: "'Primary' in (galera_bootstrap_cluster_status.stdout | default(''))"
-  retries: 20
-  delay: 3
+  retries: 30
+  delay: 5
   delegate_to: "{{ galera_bootstrap_host }}"
   when: not (galera_bootstrap | bool)
 
-- name: Start and enable Galera service on joiner nodes
+# --- Step 3: Start MariaDB normally (joins existing cluster) ---
+- name: Start MariaDB on joiner node (joins cluster via gcomm://)
   systemd:
     name: "{{ galera_service_name }}"
     enabled: true
     state: started
   when: not (galera_bootstrap | bool)
+
+# --- Step 4: Wait for node to sync ---
+- name: Wait for joiner node to reach Synced state
+  command: >-
+    {{ galera_mysql_cli }} -Nse "SHOW STATUS LIKE 'wsrep_local_state_comment';"
+  register: galera_joiner_state
+  changed_when: false
+  failed_when: false
+  until: "'Synced' in (galera_joiner_state.stdout | default(''))"
+  retries: 60
+  delay: 5
+  when: not (galera_bootstrap | bool)
+
+- name: Fail if joiner did not sync
+  fail:
+    msg: >
+      Galera joiner failed to sync — wsrep_local_state_comment is not Synced.
+      Output: {{ galera_joiner_state.stdout | default('N/A') }}
+  when:
+    - not (galera_bootstrap | bool)
+    - "'Synced' not in (galera_joiner_state.stdout | default(''))"

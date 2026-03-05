@@ -13,6 +13,7 @@
 
   roles:
     - common
+    - mysql
     - mariadb_galera
     - openuds
     - nginx
@@ -25,7 +26,7 @@
         name: "{{ item }}"
         state: started
       loop:
-        - mysql
+        - mariadb
         - openuds-server
         - nginx
         - haproxy
@@ -38,7 +39,7 @@
           OpenUDS HA Deployment Complete!
           ========================================
           Node: {{ inventory_hostname }} ({{ ansible_host }})
-          Role: {{ 'PRIMARY' if mysql_role == 'primary' else 'REPLICA' }}
+          Role: {{ keepalived_state }}
           Keepalived: {{ keepalived_state }}
           VIP: {{ keepalived_vip }}
           Domain: {{ domain }}

@@ -1,7 +1,8 @@
 ---
 galera_bootstrap: false
-galera_service_name: mysql
+galera_service_name: mariadb
 galera_bootstrap_command: galera_new_cluster
 galera_mysql_cli: >-
   mysql -u root -p{{ db_root_password }}
 galera_bootstrap_host: "{{ groups['primary'][0] | default(inventory_hostname) }}"
+galera_grastate_path: /var/lib/mysql/grastate.dat

@@ -1,12 +1,11 @@
 ---
-- name: validate and restart mysql
-  listen: restart mysql
+- name: restart mariadb
   block:
-    - name: Validate MySQL/MariaDB configuration
-      command: mysqld --defaults-file=/etc/mysql/mysql.conf.d/mysqld.cnf --verbose --help
+    - name: Validate MariaDB configuration
+      command: mariadbd --defaults-file=/etc/mysql/mariadb.conf.d/99-galera.cnf --verbose --help
       changed_when: false
 
-    - name: Restart MySQL service
+    - name: Restart MariaDB service
       systemd:
-        name: mysql
+        name: mariadb
         state: restarted

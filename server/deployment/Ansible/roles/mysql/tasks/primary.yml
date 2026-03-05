@@ -17,6 +17,26 @@
     state: present
   no_log: true
 
+- name: Create SST user for Galera mariabackup
+  mysql_user:
+    name: "{{ galera_sst_user }}"
+    password: "{{ galera_sst_password }}"
+    host: "localhost"
+    priv: "*.*:RELOAD,PROCESS,LOCK TABLES,REPLICATION CLIENT"
+    login_user: root
+    login_password: "{{ db_root_password }}"
+    state: present
+  no_log: true
+
+- name: Create HAProxy health-check user (no password)
+  mysql_user:
+    name: "{{ haproxy_mysql_check_user }}"
+    host: "%"
+    priv: "*.*:USAGE"
+    login_user: root
+    login_password: "{{ db_root_password }}"
+    state: present
+
 - name: Create replication user
   mysql_user:
     name: "{{ mysql_repl_user }}"

@@ -25,7 +25,7 @@ vrrp_instance UDS_VIP {
     }
 
     virtual_ipaddress {
-        {{ keepalived_vip }}/24
+        {{ keepalived_vip }}/{{ keepalived_vip_cidr | default('24') }}
     }
 
     track_script {

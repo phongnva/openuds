@@ -53,7 +53,7 @@ frontend https_frontend
     # Sticky sessions (UDS requires session affinity)
     default_backend uds_backends
 
-# MariaDB TCP frontend
+# MariaDB/Galera TCP frontend
 frontend mariadb_frontend
     bind {{ keepalived_vip }}:{{ haproxy_mysql_port }}
     mode tcp
@@ -77,7 +77,10 @@ backend uds_backends
 backend mariadb_backends
     mode tcp
     balance {{ haproxy_mysql_balance }}
+    option tcpka
     option mysql-check user {{ haproxy_mysql_check_user }}
+    timeout server 3600s
+    timeout client 3600s
 
 {% if haproxy_mysql_use_external_check | default(false) %}
     option external-check
@@ -87,4 +90,5 @@ backend mariadb_backends
 
 {% for node in haproxy_mysql_nodes %}
     server {{ node.name }} {{ node.host }}:{{ node.port | default(db_port) }} check inter {{ node.check_inter | default('3s') }} rise {{ node.rise | default(2) }} fall {{ node.fall | default(3) }}{% if node.backup | default(false) %} backup{% endif %}
+
 {% endfor %}

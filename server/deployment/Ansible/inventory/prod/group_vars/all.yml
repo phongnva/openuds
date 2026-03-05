@@ -1,5 +1,5 @@
 # =============================================================================
-# OpenUDS HA - Shared Variables
+# OpenUDS HA - Shared Variables (Production)
 # =============================================================================
 
 # === App ===
@@ -55,7 +55,7 @@ django_allowed_hosts: "*"
 nginx_port: 8443
 haproxy_https_port: 443
 haproxy_stats_port: 9000
-haproxy_mysql_port: 3306
+haproxy_mysql_port: 3307
 
 # === HAProxy MariaDB/Galera ===
 haproxy_mysql_balance: leastconn
@@ -75,6 +75,7 @@ haproxy_mysql_nodes:
 keepalived_vip: "{{ vip }}"
 keepalived_interface: eth0
 keepalived_vrid: 51
+keepalived_vip_cidr: 24
 keepalived_auth_pass: "{{ vault_keepalived_pass | default('UDS_HA') }}"
 
 # === Servers ===

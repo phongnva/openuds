@@ -1,35 +1,51 @@
 ---
-- name: Deploy MySQL config
+# Deploy Galera config file (no restart — bootstrap handles startup)
+- name: Deploy MariaDB Galera config
   template:
     src: mysqld.cnf.j2
-    dest: /etc/mysql/mysql.conf.d/mysqld.cnf
+    dest: /etc/mysql/mariadb.conf.d/99-galera.cnf
     owner: root
     group: root
     mode: "0644"
-  notify: restart mysql
 
-- name: Apply MySQL config changes immediately
-  meta: flush_handlers
+# Start MariaDB temporarily WITHOUT wsrep to set up users.
+# This avoids the cluster join issue on a fresh install.
+- name: Stop MariaDB if running (pre-user-setup)
+  systemd:
+    name: mariadb
+    state: stopped
+  ignore_errors: true
 
-- name: Set root password
-  mysql_user:
-    name: root
-    host: localhost
-    password: "{{ db_root_password }}"
-    login_user: root
-    login_password: "{{ db_root_password }}"
-    login_unix_socket: /var/run/mysqld/mysqld.sock
-    state: present
+- name: Start MariaDB temporarily without wsrep (for user setup)
+  command: >-
+    mysqld_safe --skip-grant-tables --wsrep-on=OFF &
+  async: 10
+  poll: 0
+
+- name: Wait for MariaDB to be ready (non-wsrep)
+  wait_for:
+    port: "{{ db_port }}"
+    delay: 2
+    timeout: 30
+
+- name: Flush privileges after skip-grant-tables
+  command: >-
+    mysql -u root -e "FLUSH PRIVILEGES;"
+  changed_when: false
+
+- name: Set MariaDB root password
+  command: >-
+    mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ db_root_password }}';"
   no_log: true
   ignore_errors: true
 
-- name: Dynamically transition GTID mode ON
-  shell: |
-    mysql -u root -p"{{ db_root_password }}" -e "
-    SET @@GLOBAL.ENFORCE_GTID_CONSISTENCY = WARN;
-    SET @@GLOBAL.ENFORCE_GTID_CONSISTENCY = ON;
-    SET @@GLOBAL.GTID_MODE = OFF_PERMISSIVE;
-    SET @@GLOBAL.GTID_MODE = ON_PERMISSIVE;
-    SET @@GLOBAL.GTID_MODE = ON;
-    "
+- name: Stop temporary MariaDB instance
+  command: mysqladmin -u root -p"{{ db_root_password }}" shutdown
   ignore_errors: true
+
+- name: Wait for MariaDB to fully stop
+  wait_for:
+    port: "{{ db_port }}"
+    state: stopped
+    delay: 1
+    timeout: 30
