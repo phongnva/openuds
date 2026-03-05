@@ -33,8 +33,10 @@ db_user: dbuds
 db_password: "{{ vault_db_password | default('CHANGE_ME') }}"
 db_root_password: "{{ vault_db_root_password | default('CHANGE_ME_ROOT') }}"
 db_port: 3306
-mysql_repl_user: repl_user
-mysql_repl_password: "{{ vault_repl_password | default('CHANGE_ME_REPL') }}"
+galera_cluster_name: openuds_galera_cluster
+galera_cluster_nodes:
+  - "{{ server01_ip }}"
+  - "{{ server02_ip }}"
 
 # === Django ===
 django_settings_module: server.settings_ha

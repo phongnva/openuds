@@ -1,0 +1,21 @@
+[mysqld]
+bind-address = 0.0.0.0
+port = {{ db_port }}
+
+# Galera
+binlog_format = row
+default_storage_engine = InnoDB
+innodb_autoinc_lock_mode = 2
+wsrep_on = ON
+wsrep_provider = /usr/lib/galera/libgalera_smm.so
+wsrep_cluster_name = "{{ galera_cluster_name }}"
+wsrep_cluster_address = "gcomm://{{ galera_cluster_nodes | join(',') }}"
+wsrep_node_name = "{{ inventory_hostname }}"
+wsrep_node_address = "{{ ansible_host }}"
+wsrep_sst_method = rsync
+
+# Performance
+max_connections = 200
+innodb_buffer_pool_size = 512M
+innodb_flush_log_at_trx_commit = 1
+transaction-isolation = READ-COMMITTED

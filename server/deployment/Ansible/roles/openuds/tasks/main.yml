@@ -1,4 +1,4 @@
 ---
 - include_tasks: deploy.yml
 - include_tasks: migrate.yml
-  when: mysql_role == 'primary'
+  run_once: true

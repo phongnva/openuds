@@ -8,12 +8,12 @@ The deployment sets up a robust cluster comprising:
 - **Load Balancers**: 2 nodes running **HAProxy** and **Keepalived** for a floating Virtual IP (VIP).
 - **Web Servers**: 2 nodes running **Nginx** as a reverse proxy for Gunicorn.
 - **App Servers**: 2 nodes running **OpenUDS (Gunicorn + TaskManager)**.
-- **Database**: 2 nodes running **MySQL 8.0** with Primary-Replica GTID-based replication.
+- **Database**: 2 nodes running **MariaDB + Galera 4** in multi-primary synchronous cluster mode.
 
 | Role | Server 01 | Server 02 | VIP |
 |------|-----------|-----------|-----|
 | IP | 103.131.85.183 | 103.131.85.163 | 103.131.85.232 |
-| MySQL | Primary | Replica | - |
+| MariaDB Galera | Node 1 (Primary-capable) | Node 2 (Primary-capable) | - |
 
 ## Prerequisites
 
@@ -63,7 +63,7 @@ cd server/deployment/Ansible
 ```
 
 ### Full Stack Deployment
-Deploys EVERYTHING (Common, MySQL, OpenUDS, Nginx, HAProxy, Keepalived).
+Deploys EVERYTHING (Common, MariaDB Galera, OpenUDS, Nginx, HAProxy, Keepalived).
 ```bash
 ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml
 ```
@@ -89,6 +89,6 @@ ansible-playbook -i inventory/prod/hosts.yml playbooks/rolling_update.yml
 
 ## Troubleshooting
 
-- **MySQL GTID Errors**: The `mysql` role handles transitions from `OFF` to `ON` dynamically. If replication fails, check `gtid_mode` on both nodes.
-- **OOM Errors**: On small servers (2GB RAM), MySQL might be killed. The `common` role adds a 2GB swap file to mitigate this.
+- **Galera Cluster Health**: Validate node state with `SHOW STATUS LIKE "wsrep_cluster_size";` and `SHOW STATUS LIKE "wsrep_local_state_comment";` on each node.
+- **OOM Errors**: On small servers (2GB RAM), MariaDB might be killed. The `common` role adds a 2GB swap file to mitigate this.
 - **Gunicorn Sockets**: If the service fails to start, ensure `/run/openuds/` is owned by `openuds` and no ghost processes are holding the socket. Use `pkill -9 -f gunicorn` to clean up.

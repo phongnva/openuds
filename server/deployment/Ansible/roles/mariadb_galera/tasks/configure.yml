@@ -1,0 +1,44 @@
+---
+- name: Deploy MariaDB Galera config
+  template:
+    src: mysqld.cnf.j2
+    dest: /etc/mysql/mariadb.conf.d/60-galera.cnf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart mariadb
+
+- name: Ensure MariaDB is restarted after config changes
+  systemd:
+    name: mariadb
+    state: restarted
+
+- name: Set root password
+  mysql_user:
+    name: root
+    host: localhost
+    password: "{{ db_root_password }}"
+    login_user: root
+    login_password: "{{ db_root_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+    state: present
+  no_log: true
+  ignore_errors: true
+
+- name: Create application database
+  mysql_db:
+    name: "{{ db_name }}"
+    state: present
+    login_user: root
+    login_password: "{{ db_root_password }}"
+
+- name: Create application user
+  mysql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    host: "%"
+    priv: "{{ db_name }}.*:ALL"
+    login_user: root
+    login_password: "{{ db_root_password }}"
+    state: present
+  no_log: true

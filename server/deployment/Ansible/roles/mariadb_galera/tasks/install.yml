@@ -1,0 +1,15 @@
+---
+- name: Install MariaDB Galera packages
+  apt:
+    name:
+      - mariadb-server
+      - mariadb-client
+      - galera-4
+      - python3-pymysql
+    state: present
+
+- name: Start and enable MariaDB
+  systemd:
+    name: mariadb
+    state: started
+    enabled: yes
