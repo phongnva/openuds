@@ -17,6 +17,15 @@
     dest: /etc/keepalived/keepalived.conf
   notify: restart keepalived
 
+- name: Deploy HAProxy health check script for keepalived
+  template:
+    src: check_haproxy.sh.j2
+    dest: /usr/local/bin/check_haproxy.sh
+    owner: root
+    group: root
+    mode: "0755"
+  notify: restart keepalived
+
 - name: Enable and start keepalived
   systemd:
     name: keepalived
