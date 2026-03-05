@@ -8,6 +8,9 @@
     mode: "0644"
   notify: restart mysql
 
+- name: Apply MySQL config changes immediately
+  meta: flush_handlers
+
 - name: Set root password
   mysql_user:
     name: root
@@ -19,11 +22,6 @@
     state: present
   no_log: true
   ignore_errors: true
-
-- name: Force restart MySQL to apply config before replication setup
-  systemd:
-    name: mysql
-    state: restarted
 
 - name: Dynamically transition GTID mode ON
   shell: |

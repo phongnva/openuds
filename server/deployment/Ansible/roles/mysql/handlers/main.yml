@@ -1,5 +1,12 @@
 ---
-- name: restart mysql
-  systemd:
-    name: mysql
-    state: restarted
+- name: validate and restart mysql
+  listen: restart mysql
+  block:
+    - name: Validate MySQL/MariaDB configuration
+      command: mysqld --defaults-file=/etc/mysql/mysql.conf.d/mysqld.cnf --verbose --help
+      changed_when: false
+
+    - name: Restart MySQL service
+      systemd:
+        name: mysql
+        state: restarted

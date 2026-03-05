@@ -3,13 +3,25 @@ server-id = {{ mysql_server_id }}
 bind-address = 0.0.0.0
 port = {{ db_port }}
 
-# Binary logging for replication
+# Binary logging for replication/Galera compatibility
 log-bin = mysql-bin
-binlog-format = ROW
+binlog_format = ROW
 binlog-do-db = {{ db_name }}
 gtid_mode = ON
 enforce_gtid_consistency = ON
 log-slave-updates = ON
+default_storage_engine = InnoDB
+innodb_autoinc_lock_mode = 2
+
+# Galera settings
+wsrep_on = ON
+wsrep_provider = {{ wsrep_provider_path | default('/usr/lib/galera/libgalera_smm.so' if ansible_os_family == 'Debian' else '/usr/lib64/galera/libgalera_smm.so') }}
+wsrep_cluster_name = {{ galera_cluster_name | quote }}
+wsrep_cluster_address = "gcomm://{{ galera_cluster_nodes | join(',') }}"
+wsrep_node_name = {{ galera_node_name | default(inventory_hostname) | quote }}
+wsrep_node_address = {{ galera_node_address | default(ansible_host | default(inventory_hostname)) | quote }}
+wsrep_sst_method = {{ galera_sst_method | default('mariabackup') | quote }}
+wsrep_sst_auth = "{{ galera_sst_user }}:{{ galera_sst_password }}"
 
 # Performance
 max_connections = 200
