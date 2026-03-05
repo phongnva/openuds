@@ -34,6 +34,15 @@ db_port: 3306
 mysql_repl_user: repl_user
 mysql_repl_password: "{{ vault_repl_password | default('CHANGE_ME_REPL') }}"
 
+# === Galera Cluster ===
+galera_cluster_name: openuds_galera
+galera_cluster_nodes:
+  - "{{ server01_ip }}"
+  - "{{ server02_ip }}"
+galera_sst_method: mariabackup
+galera_sst_user: sst_user
+galera_sst_password: "{{ vault_galera_sst_password | default('CHANGE_ME_SST') }}"
+
 # === Django ===
 django_settings_module: server.settings_ha
 django_secret_key: "{{ vault_django_secret_key | default('s5ky!7b5f#s35!e38xv%e-+iey6yi-#630x)kk3kk5_j8rie2*') }}"
