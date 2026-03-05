@@ -1,0 +1,19 @@
+---
+- name: Wait for bootstrap node to report Primary cluster state
+  command: >-
+    {{ galera_mysql_cli }} -Nse "SHOW STATUS LIKE 'wsrep_cluster_status';"
+  register: galera_bootstrap_cluster_status
+  changed_when: false
+  failed_when: false
+  until: "'Primary' in (galera_bootstrap_cluster_status.stdout | default(''))"
+  retries: 20
+  delay: 3
+  delegate_to: "{{ galera_bootstrap_host }}"
+  when: not (galera_bootstrap | bool)
+
+- name: Start and enable Galera service on joiner nodes
+  systemd:
+    name: "{{ galera_service_name }}"
+    enabled: true
+    state: started
+  when: not (galera_bootstrap | bool)
