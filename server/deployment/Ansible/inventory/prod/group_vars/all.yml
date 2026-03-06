@@ -23,6 +23,7 @@ vip: 103.131.85.232
 ssl_cert_path: /etc/ssl/certs/pv-vds.tk.crt
 ssl_key_path: /etc/ssl/private/pv-vds.tk.key
 ssl_pem_path: /etc/ssl/private/pv-vds.tk.pem
+cors_allowed_origin: "https://pv-vds.tk"
 # Set ssl_use_pem: true if you provide a single .pem file (cert+key combined)
 # Set ssl_use_pem: false to use separate .crt and .key files
 ssl_use_pem: false
