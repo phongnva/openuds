@@ -3,11 +3,17 @@
   apt:
     update_cache: yes
     cache_valid_time: 3600
+  tags:
+    - packages
+    - common
 
 - name: Install software-properties-common (needed for add-apt-repository)
   apt:
     name: software-properties-common
     state: present
+  tags:
+    - packages
+    - common
 
 - name: Add deadsnakes PPA for Python 3.12 (Ubuntu 22.04 does not ship it)
   apt_repository:
@@ -15,6 +21,9 @@
     state: present
     update_cache: yes
   when: ansible_distribution == 'Ubuntu' and ansible_distribution_version is version('24.04', '<')
+  tags:
+    - packages
+    - common
 
 - name: Install system dependencies
   apt:
@@ -49,12 +58,18 @@
       - netcat-openbsd
       - acl
     state: present
+  tags:
+    - packages
+    - common
 
 - name: Create app group
   group:
     name: "{{ app_group }}"
     system: yes
     state: present
+  tags:
+    - system
+    - common
 
 - name: Create app user
   user:
@@ -64,6 +79,9 @@
     shell: /bin/bash
     home: "{{ app_dir }}"
     create_home: yes
+  tags:
+    - system
+    - common
 
 - name: Create application directories
   file:
@@ -78,6 +96,9 @@
     - "{{ src_dir }}/log"
     - "{{ socket_dir }}"
     - /etc/openuds
+  tags:
+    - system
+    - common
 
 - name: Create tmpfiles.d for socket directory
   copy:
@@ -85,6 +106,9 @@
     content: "d {{ socket_dir }} 0755 {{ app_user }} {{ app_group }} -"
     mode: "0644"
   notify: reload tmpfiles
+  tags:
+    - system
+    - common
 
 - name: Deploy environment file
   template:
@@ -93,3 +117,6 @@
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: "0600"
+  tags:
+    - config
+    - common

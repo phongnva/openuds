@@ -12,6 +12,9 @@
     state: stopped
   when: not (galera_bootstrap | bool)
   ignore_errors: true
+  tags:
+    - database
+    - galera
 
 # --- Step 2: Wait for bootstrap node to be in Primary state ---
 - name: Wait for bootstrap node to report Primary cluster state
@@ -25,6 +28,9 @@
   delay: 5
   delegate_to: "{{ galera_bootstrap_host }}"
   when: not (galera_bootstrap | bool)
+  tags:
+    - database
+    - galera
 
 # --- Step 3: Start MariaDB normally (joins existing cluster) ---
 - name: Start MariaDB on joiner node (joins cluster via gcomm://)
@@ -33,6 +39,10 @@
     enabled: true
     state: started
   when: not (galera_bootstrap | bool)
+  tags:
+    - database
+    - galera
+    - service
 
 # --- Step 4: Wait for node to sync ---
 - name: Wait for joiner node to reach Synced state
@@ -45,6 +55,9 @@
   retries: 60
   delay: 5
   when: not (galera_bootstrap | bool)
+  tags:
+    - database
+    - galera
 
 - name: Fail if joiner did not sync
   fail:
@@ -54,3 +67,6 @@
   when:
     - not (galera_bootstrap | bool)
     - "'Synced' not in (galera_joiner_state.stdout | default(''))"
+  tags:
+    - database
+    - galera

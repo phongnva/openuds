@@ -3,6 +3,9 @@
   apt:
     name: haproxy
     state: present
+  tags:
+    - packages
+    - haproxy
 
 - name: Create HAProxy SSL directory
   file:
@@ -11,6 +14,10 @@
     owner: haproxy
     group: haproxy
     mode: "0700"
+  tags:
+    - system
+    - haproxy
+    - ssl
 
 # --- PEM mode: copy PEM directly ---
 - name: Deploy PEM file for HAProxy (pem mode)
@@ -22,6 +29,10 @@
     mode: "0600"
   when: ssl_use_pem | bool
   notify: restart haproxy
+  tags:
+    - ssl
+    - haproxy
+    - security
 
 # --- Separate cert+key mode: concatenate into PEM ---
 - name: Concatenate SSL cert + key for HAProxy
@@ -29,6 +40,10 @@
     cat {{ ssl_cert_path }} {{ ssl_key_path }} > /etc/haproxy/ssl/{{ domain }}.pem
   when: not (ssl_use_pem | bool)
   notify: restart haproxy
+  tags:
+    - ssl
+    - haproxy
+    - security
 
 - name: Set HAProxy PEM permissions
   file:
@@ -36,6 +51,10 @@
     mode: "0600"
     owner: haproxy
     group: haproxy
+  tags:
+    - ssl
+    - haproxy
+    - security
 
 - name: Allow HAProxy to bind to non-local IP (VIP)
   sysctl:
@@ -43,6 +62,10 @@
     value: "1"
     sysctl_set: yes
     reload: yes
+  tags:
+    - system
+    - haproxy
+    - network
 
 - name: Deploy HAProxy config
   template:
@@ -50,9 +73,15 @@
     dest: /etc/haproxy/haproxy.cfg
     validate: "haproxy -f %s -c -q"
   notify: restart haproxy
+  tags:
+    - config
+    - haproxy
 
 - name: Enable and start HAProxy
   systemd:
     name: haproxy
     enabled: yes
     state: started
+  tags:
+    - service
+    - haproxy

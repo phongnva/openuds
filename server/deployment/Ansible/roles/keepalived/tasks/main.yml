@@ -3,6 +3,9 @@
   apt:
     name: keepalived
     state: present
+  tags:
+    - packages
+    - keepalived
 
 - name: Allow non-local bind (for VIP)
   sysctl:
@@ -10,12 +13,19 @@
     value: "1"
     sysctl_set: yes
     reload: yes
+  tags:
+    - system
+    - keepalived
+    - network
 
 - name: Deploy keepalived config
   template:
     src: keepalived.conf.j2
     dest: /etc/keepalived/keepalived.conf
   notify: restart keepalived
+  tags:
+    - config
+    - keepalived
 
 - name: Deploy HAProxy health check script for keepalived
   template:
@@ -25,9 +35,16 @@
     group: root
     mode: "0755"
   notify: restart keepalived
+  tags:
+    - config
+    - keepalived
+    - haproxy
 
 - name: Enable and start keepalived
   systemd:
     name: keepalived
     enabled: yes
     state: started
+  tags:
+    - service
+    - keepalived

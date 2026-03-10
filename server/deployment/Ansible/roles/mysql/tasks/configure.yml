@@ -7,6 +7,10 @@
     owner: root
     group: root
     mode: "0644"
+  tags:
+    - config
+    - database
+    - mysql
 
 # Start MariaDB temporarily WITHOUT wsrep to set up users.
 # This avoids the cluster join issue on a fresh install.
@@ -15,33 +19,52 @@
     name: mariadb
     state: stopped
   ignore_errors: true
+  tags:
+    - database
+    - mysql
 
 - name: Start MariaDB temporarily without wsrep (for user setup)
   command: >-
     mysqld_safe --skip-grant-tables --wsrep-on=OFF &
   async: 10
   poll: 0
+  tags:
+    - database
+    - mysql
 
 - name: Wait for MariaDB to be ready (non-wsrep)
   wait_for:
     port: "{{ db_port }}"
     delay: 2
     timeout: 30
+  tags:
+    - database
+    - mysql
 
 - name: Flush privileges after skip-grant-tables
   command: >-
     mysql -u root -e "FLUSH PRIVILEGES;"
   changed_when: false
+  tags:
+    - database
+    - mysql
 
 - name: Set MariaDB root password
   command: >-
     mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ db_root_password }}';"
   no_log: true
   ignore_errors: true
+  tags:
+    - database
+    - mysql
+    - security
 
 - name: Stop temporary MariaDB instance
   command: mysqladmin -u root -p"{{ db_root_password }}" shutdown
   ignore_errors: true
+  tags:
+    - database
+    - mysql
 
 - name: Wait for MariaDB to fully stop
   wait_for:
@@ -49,3 +72,6 @@
     state: stopped
     delay: 1
     timeout: 30
+  tags:
+    - database
+    - mysql

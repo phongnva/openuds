@@ -3,17 +3,26 @@
   apt:
     name: nginx
     state: present
+  tags:
+    - packages
+    - nginx
 
 - name: Remove default nginx site
   file:
     path: /etc/nginx/sites-enabled/default
     state: absent
+  tags:
+    - config
+    - nginx
 
 - name: Deploy UDS nginx config
   template:
     src: nginx_uds.conf.j2
     dest: /etc/nginx/sites-available/openuds.conf
   notify: reload nginx
+  tags:
+    - config
+    - nginx
 
 - name: Enable UDS nginx site
   file:
@@ -21,6 +30,9 @@
     dest: /etc/nginx/sites-enabled/openuds.conf
     state: link
   notify: reload nginx
+  tags:
+    - config
+    - nginx
 
 # --- SSL: PEM file mode (single file with cert+key) ---
 - name: Deploy SSL PEM file
@@ -30,12 +42,20 @@
     mode: "0600"
   when: ssl_use_pem | bool
   notify: reload nginx
+  tags:
+    - ssl
+    - nginx
+    - security
 
 - name: Extract certificate from PEM
   shell: >
     openssl x509 -in {{ ssl_pem_path }} -out {{ ssl_cert_path }}
   when: ssl_use_pem | bool
   notify: reload nginx
+  tags:
+    - ssl
+    - nginx
+    - security
 
 - name: Extract private key from PEM
   shell: >
@@ -44,6 +64,10 @@
     creates: "{{ ssl_key_path }}"
   when: ssl_use_pem | bool
   notify: reload nginx
+  tags:
+    - ssl
+    - nginx
+    - security
 
 # --- SSL: Separate cert + key mode ---
 - name: Deploy SSL certificate
@@ -52,6 +76,10 @@
     dest: "{{ ssl_cert_path }}"
     mode: "0644"
   when: not (ssl_use_pem | bool)
+  tags:
+    - ssl
+    - nginx
+    - security
 
 - name: Deploy SSL private key
   copy:
@@ -59,15 +87,25 @@
     dest: "{{ ssl_key_path }}"
     mode: "0600"
   when: not (ssl_use_pem | bool)
+  tags:
+    - ssl
+    - nginx
+    - security
 
 - name: Add www-data to app group
   user:
     name: www-data
     groups: "{{ app_group }}"
     append: yes
+  tags:
+    - system
+    - nginx
 
 - name: Enable and start nginx
   systemd:
     name: nginx
     enabled: yes
     state: started
+  tags:
+    - service
+    - nginx

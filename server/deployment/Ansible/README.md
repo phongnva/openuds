@@ -149,6 +149,68 @@ Updates nodes one by one, using HAProxy to drain traffic.
 ansible-playbook -i inventory/prod/hosts.yml playbooks/rolling_update.yml
 ```
 
+## Ansible Tags
+
+All tasks are tagged by category, enabling fine-grained selective runs with `--tags` or `--skip-tags`.
+
+### Tag Reference
+
+| Tag | Task Category | Roles/Files áp dụng |
+|-----|---------------|---------------------|
+| `packages` | Cài đặt apt packages & Python pip/venv | `common`, `mysql`, `nginx`, `haproxy`, `keepalived`, `openuds` |
+| `system` | Quản lý user/group/directory, sysctl | `common`, `nginx`, `haproxy`, `keepalived`, `openuds` |
+| `config` | Deploy config templates (`.j2`) & scripts | `common`, `mysql`, `mariadb_galera`, `nginx`, `haproxy`, `keepalived`, `openuds` |
+| `ssl` | Deploy SSL certificates và RSA keys | `nginx`, `haproxy`, `openuds` |
+| `security` | Passwords, file permissions, keys | `mysql`, `mariadb_galera`, `nginx`, `haproxy`, `openuds` |
+| `database` | Tất cả MariaDB/MySQL tasks | `mysql`, `mariadb_galera` |
+| `mysql` | MariaDB-specific tasks | `mysql` |
+| `galera` | Galera bootstrap / join / verify | `mariadb_galera` (bootstrap, join, verify) |
+| `db_users` | Tạo database users & permissions | `mysql/primary`, `mariadb_galera/bootstrap` |
+| `app` | Deploy source code OpenUDS | `openuds` |
+| `openuds` | Tất cả tasks trong role openuds | `openuds/deploy`, `openuds/migrate` |
+| `migrate` | Django migrate, createcachetable, collectstatic | `openuds/migrate` |
+| `deploy` | Rsync source code | `openuds/deploy` |
+| `nginx` | Tất cả tasks trong role nginx | `nginx` |
+| `haproxy` | Tất cả tasks trong role haproxy | `haproxy`, `keepalived` |
+| `keepalived` | Tất cả tasks trong role keepalived | `keepalived` |
+| `service` | systemd enable/start/restart | `openuds`, `nginx`, `haproxy`, `keepalived`, playbook post_tasks |
+| `network` | sysctl `ip_nonlocal_bind` (VIP support) | `haproxy`, `keepalived` |
+| `verify` | Kiểm tra trạng thái cluster/services | `mariadb_galera/verify`, playbook post_tasks |
+| `rolling_update` | Drain/re-enable HAProxy node trong rolling update | `rolling_update.yml` |
+| `common` | Tất cả tasks trong role common | `common` |
+| `always` | Tasks luôn chạy (deployment info) | `site.yml` post_tasks |
+
+### Ví dụ sử dụng tags
+
+```bash
+# Chỉ cài packages trên tất cả nodes
+ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml --tags packages
+
+# Deploy app code + run migrations (bỏ qua database infrastructure)
+ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml --tags "app,migrate"
+
+# Chỉ update SSL certificates
+ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml --tags ssl
+
+# Chỉ deploy config templates (không restart)
+ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml --tags config
+
+# Bootstrap/join/verify Galera cluster
+ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml --tags galera
+
+# Tạo DB users (sau khi cluster đã chạy)
+ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml --tags db_users
+
+# Chỉ start/enable tất cả services
+ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml --tags service
+
+# Verify cluster và services status
+ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml --tags verify
+
+# Bỏ qua toàn bộ database tasks (deploy infra + app only)
+ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml --skip-tags "database,galera"
+```
+
 ## Troubleshooting
 
 - **Galera Bootstrap Fails**: Ensure `safe_to_bootstrap: 1` is set in `/var/lib/mysql/grastate.dat` on the bootstrap node. After a hard crash, run `mysqld --wsrep-recover` on each node to find the most advanced one, then set its `safe_to_bootstrap: 1`.

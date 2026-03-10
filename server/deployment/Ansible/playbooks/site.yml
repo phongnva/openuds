@@ -5,6 +5,21 @@
 # Usage:
 #   ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml
 #   ansible-playbook -i inventory/prod/hosts.yml playbooks/site.yml --check --diff
+#
+# Tag-based selective runs (examples):
+#   --tags packages        Install all packages only
+#   --tags database        Run all DB setup tasks
+#   --tags galera          Galera cluster bootstrap/join/verify
+#   --tags db_users        Create DB users only
+#   --tags app             Deploy OpenUDS app code
+#   --tags migrate         Run Django migrations + collectstatic
+#   --tags config          Deploy all config templates
+#   --tags ssl             Deploy SSL certificates only
+#   --tags service         Start/enable all services
+#   --tags nginx           Run all nginx tasks
+#   --tags haproxy         Run all HAProxy tasks
+#   --tags keepalived      Run all Keepalived tasks
+#   --tags verify          Run Galera cluster verification
 # =============================================================================
 
 - name: Deploy OpenUDS HA
@@ -31,6 +46,9 @@
         - nginx
         - haproxy
         - keepalived
+      tags:
+        - service
+        - verify
 
     - name: Display deployment info
       debug:
@@ -44,3 +62,5 @@
           VIP: {{ keepalived_vip }}
           Domain: {{ domain }}
           ========================================
+      tags:
+        - always

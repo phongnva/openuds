@@ -5,6 +5,10 @@
     state: present
     login_user: root
     login_password: "{{ db_root_password }}"
+  tags:
+    - database
+    - db_users
+    - mysql
 
 - name: Create application user
   mysql_user:
@@ -16,6 +20,11 @@
     login_password: "{{ db_root_password }}"
     state: present
   no_log: true
+  tags:
+    - db_users
+    - database
+    - mysql
+    - security
 
 - name: Create SST user for Galera mariabackup
   mysql_user:
@@ -27,6 +36,11 @@
     login_password: "{{ db_root_password }}"
     state: present
   no_log: true
+  tags:
+    - db_users
+    - database
+    - galera
+    - security
 
 - name: Create HAProxy health-check user (no password)
   mysql_user:
@@ -36,6 +50,11 @@
     login_user: root
     login_password: "{{ db_root_password }}"
     state: present
+  tags:
+    - db_users
+    - database
+    - haproxy
+    - mysql
 
 - name: Create replication user
   mysql_user:
@@ -47,3 +66,8 @@
     login_password: "{{ db_root_password }}"
     state: present
   no_log: true
+  tags:
+    - db_users
+    - database
+    - mysql
+    - security

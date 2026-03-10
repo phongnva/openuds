@@ -24,3 +24,7 @@
       loop:
         - openuds-server
         - nginx
+      tags:
+        - service
+        - verify
+        - app

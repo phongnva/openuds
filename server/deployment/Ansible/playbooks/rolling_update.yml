@@ -20,10 +20,15 @@
       ignore_errors: yes
       delegate_to: "{{ item }}"
       loop: "{{ groups['uds_servers'] }}"
+      tags:
+        - haproxy
+        - rolling_update
 
     - name: Wait for connections to drain
       pause:
         seconds: 10
+      tags:
+        - rolling_update
 
   roles:
     - openuds
@@ -37,6 +42,9 @@
       loop:
         - openuds-server
         - nginx
+      tags:
+        - service
+        - verify
 
     - name: Re-enable node in HAProxy
       command: >
@@ -45,3 +53,6 @@
       ignore_errors: yes
       delegate_to: "{{ item }}"
       loop: "{{ groups['uds_servers'] }}"
+      tags:
+        - haproxy
+        - rolling_update

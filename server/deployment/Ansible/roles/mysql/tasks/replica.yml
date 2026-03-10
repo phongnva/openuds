@@ -9,3 +9,6 @@
       This node is part of a Galera multi-master cluster.
       No traditional primary/replica replication configuration is needed.
   when: false
+  tags:
+    - database
+    - galera

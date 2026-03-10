@@ -7,6 +7,10 @@
   environment:
     DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
   become_user: "{{ app_user }}"
+  tags:
+    - migrate
+    - app
+    - openuds
 
 - name: Create cache table
   shell: >
@@ -17,6 +21,10 @@
     DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
   become_user: "{{ app_user }}"
   ignore_errors: yes
+  tags:
+    - migrate
+    - app
+    - openuds
 
 - name: Collect static files
   shell: >
@@ -26,3 +34,7 @@
   environment:
     DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
   become_user: "{{ app_user }}"
+  tags:
+    - migrate
+    - app
+    - openuds

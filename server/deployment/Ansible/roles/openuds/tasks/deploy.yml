@@ -8,11 +8,19 @@
     rsync_opts:
       - "--exclude=__pycache__"
       - "--exclude=*.pyc"
+  tags:
+    - app
+    - openuds
+    - deploy
 
 - name: Sync requirements.txt from local machine
   synchronize:
     src: "../../../../requirements.txt"
     dest: "{{ app_dir }}/requirements.txt"
+  tags:
+    - app
+    - openuds
+    - deploy
 
 - name: Set ownership for synced directory
   file:
@@ -20,12 +28,20 @@
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     recurse: yes
+  tags:
+    - app
+    - openuds
+    - system
 
 - name: Set ownership for requirements.txt
   file:
     path: "{{ app_dir }}/requirements.txt"
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
+  tags:
+    - app
+    - openuds
+    - system
 
 - name: Create internal src/log directory for Django
   file:
@@ -34,12 +50,20 @@
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: "0755"
+  tags:
+    - app
+    - openuds
+    - system
 
 - name: Create Python virtual environment
   command: "python{{ python_version }} -m venv {{ venv_dir }}"
   args:
     creates: "{{ venv_dir }}/bin/activate"
   become_user: "{{ app_user }}"
+  tags:
+    - app
+    - openuds
+    - packages
 
 - name: Upgrade pip in virtualenv
   pip:
@@ -47,6 +71,10 @@
     state: latest
     virtualenv: "{{ venv_dir }}"
   become_user: "{{ app_user }}"
+  tags:
+    - app
+    - openuds
+    - packages
 
 - name: Install Python dependencies
   shell: |
@@ -57,6 +85,10 @@
   args:
     executable: /bin/bash
   become_user: "{{ app_user }}"
+  tags:
+    - app
+    - openuds
+    - packages
 
 - name: Copy settings.py from sample (if not exists)
   copy:
@@ -65,6 +97,10 @@
     remote_src: yes
     owner: "{{ app_user }}"
     force: no
+  tags:
+    - app
+    - openuds
+    - config
 
 - name: Deploy HA settings
   template:
@@ -73,12 +109,21 @@
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: "0640"
+  tags:
+    - app
+    - openuds
+    - config
 
 - name: Generate RSA key (if not exists)
   command: openssl genrsa -out {{ src_dir }}/server/rsa_key.pem 4096
   args:
     creates: "{{ src_dir }}/server/rsa_key.pem"
   become_user: "{{ app_user }}"
+  tags:
+    - app
+    - openuds
+    - security
+    - ssl
 
 - name: Set RSA key permissions
   file:
@@ -86,6 +131,11 @@
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: "0600"
+  tags:
+    - app
+    - openuds
+    - security
+    - ssl
 
 - name: Deploy openuds-server wrapper script
   template:
@@ -94,6 +144,10 @@
     owner: "{{ app_user }}"
     group: "{{ app_group }}"
     mode: "0755"
+  tags:
+    - app
+    - openuds
+    - config
 
 - name: Deploy openuds-server systemd service
   template:
@@ -102,9 +156,18 @@
   notify:
     - reload systemd
     - restart openuds-server
+  tags:
+    - app
+    - openuds
+    - service
+    - config
 
 - name: Enable and start openuds-server
   systemd:
     name: openuds-server
     enabled: yes
     state: started
+  tags:
+    - app
+    - openuds
+    - service

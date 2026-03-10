@@ -9,6 +9,10 @@
       - python3-mysqldb
       - python3-pymysql
     state: present
+  tags:
+    - packages
+    - database
+    - mysql
 
 # Do NOT start MariaDB here. The Galera config is not yet deployed,
 # and starting with wsrep_on=ON + gcomm://nodes will fail if no cluster

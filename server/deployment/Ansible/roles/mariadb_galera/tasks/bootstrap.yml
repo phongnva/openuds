@@ -12,6 +12,9 @@
     state: stopped
   when: galera_bootstrap | bool
   ignore_errors: true
+  tags:
+    - database
+    - galera
 
 # --- Step 2: Handle safe_to_bootstrap flag ---
 # Galera 3.19+ requires safe_to_bootstrap: 1 in grastate.dat
@@ -21,6 +24,9 @@
     path: "{{ galera_grastate_path }}"
   register: grastate_file
   when: galera_bootstrap | bool
+  tags:
+    - database
+    - galera
 
 - name: Create grastate.dat for fresh bootstrap
   copy:
@@ -37,6 +43,10 @@
   when:
     - galera_bootstrap | bool
     - not grastate_file.stat.exists | default(false)
+  tags:
+    - database
+    - galera
+    - config
 
 - name: Set safe_to_bootstrap flag to 1 (existing grastate.dat)
   lineinfile:
@@ -46,11 +56,18 @@
   when:
     - galera_bootstrap | bool
     - grastate_file.stat.exists | default(false)
+  tags:
+    - database
+    - galera
+    - config
 
 # --- Step 3: Bootstrap the cluster ---
 - name: Bootstrap Galera cluster
   command: "{{ galera_bootstrap_command }}"
   when: galera_bootstrap | bool
+  tags:
+    - database
+    - galera
 
 # --- Step 4: Wait for the bootstrap node to reach Primary state ---
 - name: Wait for bootstrap node to reach Primary state
@@ -63,6 +80,9 @@
   retries: 30
   delay: 3
   when: galera_bootstrap | bool
+  tags:
+    - database
+    - galera
 
 - name: Fail if bootstrap did not reach Primary state
   fail:
@@ -73,6 +93,9 @@
   when:
     - galera_bootstrap | bool
     - "'Primary' not in (galera_bootstrap_status.stdout | default(''))"
+  tags:
+    - database
+    - galera
 
 # --- Step 5: Create database users on bootstrap node ---
 # These will replicate to joiners via Galera SST/IST
@@ -83,6 +106,10 @@
     login_user: root
     login_password: "{{ db_root_password }}"
   when: galera_bootstrap | bool
+  tags:
+    - database
+    - db_users
+    - galera
 
 - name: Create application user
   mysql_user:
@@ -95,6 +122,10 @@
     state: present
   no_log: true
   when: galera_bootstrap | bool
+  tags:
+    - db_users
+    - galera
+    - security
 
 - name: Create SST user for Galera mariabackup
   mysql_user:
@@ -107,6 +138,10 @@
     state: present
   no_log: true
   when: galera_bootstrap | bool
+  tags:
+    - db_users
+    - galera
+    - security
 
 - name: Create HAProxy health-check user (no password)
   mysql_user:
@@ -117,6 +152,10 @@
     login_password: "{{ db_root_password }}"
     state: present
   when: galera_bootstrap | bool
+  tags:
+    - db_users
+    - galera
+    - haproxy
 
 - name: Create replication user
   mysql_user:
@@ -129,3 +168,7 @@
     state: present
   no_log: true
   when: galera_bootstrap | bool
+  tags:
+    - db_users
+    - galera
+    - security
