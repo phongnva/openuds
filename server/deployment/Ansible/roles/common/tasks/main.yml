@@ -4,6 +4,18 @@
     update_cache: yes
     cache_valid_time: 3600
 
+- name: Install software-properties-common (needed for add-apt-repository)
+  apt:
+    name: software-properties-common
+    state: present
+
+- name: Add deadsnakes PPA for Python 3.12 (Ubuntu 22.04 does not ship it)
+  apt_repository:
+    repo: ppa:deadsnakes/ppa
+    state: present
+    update_cache: yes
+  when: ansible_distribution == 'Ubuntu' and ansible_distribution_version is version('24.04', '<')
+
 - name: Install system dependencies
   apt:
     name:
