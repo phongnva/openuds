@@ -50,6 +50,11 @@ ha_vip: 103.131.85.190       # unused IP in same subnet
 ha_vip_interface: eth0       # check with: ip link show
 keepalived_auth_pass: secret
 haproxy_stats_pass: secret
+
+# UDS Broker admin credentials (used by register-tunnel.sh)
+uds_broker_url: "https://your-uds-broker.example.com"
+uds_admin_user: "admin"
+uds_admin_password: "{{ vault_uds_admin_password }}"  # use Ansible Vault
 ```
 
 ### Deploy
@@ -70,7 +75,8 @@ ansible-playbook playbooks/deploy_tunnel_ha.yml --check --diff
 ### Post-deployment
 
 1. In OpenUDS Admin, set the Tunnel Server URL to `https://<ha_vip>:8443`
-2. HAProxy stats page: `http://<node-ip>:9000/stats` (admin / `haproxy_stats_pass`)
+2. Assign tunnel servers to a **Tunnel Group** in OpenUDS Admin → Connectivity → Tunnels
+3. HAProxy stats page: `http://<node-ip>:9000/stats` (admin / `haproxy_stats_pass`)
 
 ### Failover Test
 
@@ -92,19 +98,53 @@ ssh root@<tunnel01> systemctl start udstunnel
 ### Prerequisites
 
 - Ansible on control node, SSH key access to target
-- Tunnel token from OpenUDS Admin dashboard
+- UDS Broker admin credentials (to auto-register tunnel via REST API)
 - SSL certificates placed on the target server
 
 ### Configuration
 
 Edit `inventory/hosts.yml` with the server IP.  
-Edit `inventory/group_vars/all.yml` — set `tunnel_token` and `db_password`.
+Edit `inventory/group_vars/all.yml`:
+
+```yaml
+# UDS Broker admin credentials for tunnel auto-registration
+uds_broker_url: "https://your-uds-broker.example.com"
+uds_admin_user: "admin"
+uds_admin_password: "{{ vault_uds_admin_password }}"
+
+# Encrypt your password with Ansible Vault:
+# ansible-vault encrypt_string '<password>' --name vault_uds_admin_password
+```
 
 ### Deploy
 
 ```bash
 cd tunnel-server/deployment/Ansible
 ansible-playbook playbooks/deploy_tunnel.yml
+```
+
+---
+
+## Tunnel Registration (REST API)
+
+Starting from UDS v3.6+, tunnel servers are **no longer registered by inserting directly into the database**.
+Registration is now done via the UDS Broker REST API automatically during deployment.
+
+The `register-tunnel.sh` script (deployed by Ansible to `/usr/local/bin/`) performs:
+
+1. `POST /uds/rest/auth/login` — authenticates with the UDS Broker (admin credentials)
+2. `POST /uds/rest/servers/register` — registers the tunnel server (`type=2`) and receives a `token`
+3. Writes `uds_token = <token>` into `/etc/openuds-tunnel/udstunnel.conf`
+4. Restarts `udstunnel` automatically if the token changed
+
+> **After registration**, assign the tunnel server to a Tunnel Group in OpenUDS Admin:
+> `Connectivity → Tunnels → [Your Group] → Servers → Assign`
+>
+> The Tunnel Group's `host` and `port` (e.g. the HAProxy VIP) are what UDS Clients connect to.
+
+To re-register manually at any time:
+```bash
+ssh root@<tunnel-host> /usr/local/bin/register-tunnel.sh
 ```
 
 ---
@@ -136,6 +176,7 @@ sudo systemctl status keepalived
 |---|---|
 | Tunnel config | `/etc/openuds-tunnel/udstunnel.conf` |
 | Tunnel logs | `/var/log/openuds-tunnel/udstunnel.log` |
+| Registration script | `/usr/local/bin/register-tunnel.sh` |
 | HAProxy config | `/etc/haproxy/haproxy.cfg` |
 | Keepalived config | `/etc/keepalived/keepalived.conf` |
 | Code / Venv | `/opt/openuds-tunnel/` |

@@ -11,7 +11,7 @@
       - python3-venv
       - openssl
       - ca-certificates
-      - default-mysql-client
+      - curl
     state: present
     update_cache: yes
     cache_valid_time: 3600
@@ -76,10 +76,10 @@
   notify:
     - restart udstunnel
 
-- name: Deploy add-tunnel-to-db.sh
+- name: Deploy register-tunnel.sh
   template:
-    src: add-tunnel-to-db.sh.j2
-    dest: /usr/local/bin/add-tunnel-to-db.sh
+    src: register-tunnel.sh.j2
+    dest: /usr/local/bin/register-tunnel.sh
     owner: root
     group: root
     mode: "0755"
@@ -103,8 +103,10 @@
     enabled: yes
     state: started
 
-- name: Register tunnel in database
-  command: /usr/local/bin/add-tunnel-to-db.sh
-  register: tunnel_db_result
-  changed_when: "'adding tunnel token' in tunnel_db_result.stdout"
-  failed_when: false
+- name: Register tunnel server via REST API
+  command: /usr/local/bin/register-tunnel.sh
+  register: tunnel_register_result
+  changed_when: "'uds_token updated' in tunnel_register_result.stdout or 'uds_token appended' in tunnel_register_result.stdout"
+  failed_when: tunnel_register_result.rc != 0
+  notify:
+    - restart udstunnel

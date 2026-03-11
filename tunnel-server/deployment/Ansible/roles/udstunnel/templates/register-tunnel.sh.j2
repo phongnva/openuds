@@ -1,0 +1,125 @@
+#!/bin/bash
+# register-tunnel.sh
+# Managed by Ansible — do not edit manually
+#
+# Registers this tunnel server with the UDS Broker via REST API.
+# Replaces the old add-tunnel-to-db.sh (which inserted directly into DB).
+#
+# Required environment / template variables:
+#   UDS_BROKER_URL   – base URL of the UDS Broker (e.g. https://uds.example.com)
+#   UDS_ADMIN_USER   – admin username
+#   UDS_ADMIN_PASS   – admin password
+#   TUNNEL_HOSTNAME  – FQDN or IP of this tunnel server (used as registration key)
+#   TUNNEL_IP        – IP that UDS will connect back to
+#   TUNNEL_PORT      – port this tunnel listens on
+#   TUNNEL_CONF      – path to udstunnel.conf
+
+set -euo pipefail
+
+UDS_BROKER_URL="{{ uds_broker_url }}"
+UDS_ADMIN_USER="{{ uds_admin_user }}"
+UDS_ADMIN_PASS="{{ uds_admin_password }}"
+TUNNEL_HOSTNAME="{{ tunnel_hostname | default(ansible_host) }}"
+TUNNEL_IP="{{ ansible_host }}"
+TUNNEL_PORT="{{ tunnel_port }}"
+TUNNEL_CONF="/etc/openuds-tunnel/udstunnel.conf"
+
+# ServerType.TUNNEL = 2 (from uds.core.types.servers)
+SERVER_TYPE=2
+
+# ── 1. Obtain a session token (Basic Auth login) ────────────────────────────
+echo "[register-tunnel] Authenticating with UDS Broker at ${UDS_BROKER_URL} ..."
+
+AUTH_RESPONSE=$(curl -sf \
+  --max-time 30 \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d "{\"username\": \"${UDS_ADMIN_USER}\", \"password\": \"${UDS_ADMIN_PASS}\", \"authId\": \"internal\", \"mfaCode\": \"\"}" \
+  "${UDS_BROKER_URL}/uds/rest/auth/login")
+
+if [ -z "${AUTH_RESPONSE}" ]; then
+  echo "[register-tunnel] ERROR: Empty response from login endpoint." >&2
+  exit 1
+fi
+
+SESSION_TOKEN=$(python3 -c "
+import sys, json
+d = json.loads('''${AUTH_RESPONSE}''')
+if d.get('result') != 'ok':
+    sys.exit('Login failed: ' + d.get('error', 'unknown'))
+print(d['token'])
+")
+
+if [ -z "${SESSION_TOKEN}" ]; then
+  echo "[register-tunnel] ERROR: Could not parse session token from login response." >&2
+  exit 1
+fi
+
+echo "[register-tunnel] Login successful. Registering tunnel server ..."
+
+# ── 2. Register tunnel server ────────────────────────────────────────────────
+REGISTER_RESPONSE=$(curl -sf \
+  --max-time 30 \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -H "X-Auth-Token: ${SESSION_TOKEN}" \
+  -d "{
+    \"type\": ${SERVER_TYPE},
+    \"hostname\": \"${TUNNEL_HOSTNAME}\",
+    \"ip\": \"${TUNNEL_IP}\",
+    \"port\": ${TUNNEL_PORT},
+    \"mac\": \"00:00:00:00:00:00\",
+    \"os\": \"linux\",
+    \"version\": \"4.0.0\",
+    \"subtype\": \"\"
+  }" \
+  "${UDS_BROKER_URL}/uds/rest/servers/register")
+
+if [ -z "${REGISTER_RESPONSE}" ]; then
+  echo "[register-tunnel] ERROR: Empty response from register endpoint." >&2
+  exit 1
+fi
+
+# ── 3. Parse the returned token ──────────────────────────────────────────────
+TUNNEL_TOKEN=$(python3 -c "
+import sys, json
+d = json.loads('''${REGISTER_RESPONSE}''')
+if d.get('result') == 'error':
+    sys.exit('Registration failed: ' + d.get('error', 'unknown'))
+t = d.get('result')
+if not t:
+    sys.exit('No token in response: ' + repr(d))
+print(t)
+")
+
+if [ -z "${TUNNEL_TOKEN}" ]; then
+  echo "[register-tunnel] ERROR: Could not parse tunnel token from register response." >&2
+  exit 1
+fi
+
+echo "[register-tunnel] Registration successful. Token received."
+
+# ── 4. Update uds_token in udstunnel.conf ───────────────────────────────────
+if grep -q "^uds_token" "${TUNNEL_CONF}"; then
+  CURRENT_TOKEN=$(grep "^uds_token" "${TUNNEL_CONF}" | awk -F' *= *' '{print $2}' | tr -d '[:space:]')
+  if [ "${CURRENT_TOKEN}" = "${TUNNEL_TOKEN}" ]; then
+    echo "[register-tunnel] Token unchanged — no config update needed."
+    exit 0
+  fi
+  # Update existing line
+  sed -i "s|^uds_token.*|uds_token = ${TUNNEL_TOKEN}|" "${TUNNEL_CONF}"
+  echo "[register-tunnel] uds_token updated in ${TUNNEL_CONF}."
+else
+  # Append line (should not normally happen if template was deployed correctly)
+  echo "uds_token = ${TUNNEL_TOKEN}" >> "${TUNNEL_CONF}"
+  echo "[register-tunnel] uds_token appended to ${TUNNEL_CONF}."
+fi
+
+# ── 5. Logout (best-effort) ──────────────────────────────────────────────────
+curl -sf --max-time 10 \
+  -X GET \
+  -H "X-Auth-Token: ${SESSION_TOKEN}" \
+  "${UDS_BROKER_URL}/uds/rest/auth/logout" > /dev/null 2>&1 || true
+
+echo "[register-tunnel] Done. Please restart udstunnel to apply the new token."
+exit 0

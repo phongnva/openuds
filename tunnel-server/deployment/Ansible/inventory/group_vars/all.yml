@@ -20,14 +20,23 @@ tunnel_port: 8443
 tunnel_app_dir: /opt/openuds-tunnel
 tunnel_src_dir: "{{ tunnel_app_dir }}/src"
 tunnel_venv_dir: "{{ tunnel_app_dir }}/venv"
-tunnel_token: "{{ vault_tunnel_token | default('CHANGE_ME') }}"
 tunnel_ssl_cert: /etc/openuds-tunnel/ssl/server.pem
 tunnel_ssl_key: /etc/openuds-tunnel/ssl/server.key
 tunnel_uds_server: "https://{{ domain }}/uds/rest/tunnel/ticket"
 tunnel_uds_verify_ssl: "false"
 tunnel_log_level: INFO
 tunnel_secret: "{{ vault_tunnel_secret | default('MySecret') }}"
-tunnel_db_host: 103.131.85.183
+
+# === UDS Broker Admin (dùng đăng ký tunnel qua REST API) ===
+# uds_broker_url: Base URL của UDS Broker (KHÔNG có trailing slash)
+uds_broker_url: "https://{{ domain }}"
+uds_admin_user: "admin"
+# Lưu vào Vault: ansible-vault encrypt_string '<password>' --name vault_uds_admin_password
+uds_admin_password: "{{ vault_uds_admin_password | default('CHANGE_ME') }}"
+# hostname của tunnel server gửi lên khi đăng ký (thường là ansible_host)
+tunnel_hostname: "{{ ansible_host }}"
+# port tunnel listen — gửi lên broker khi register
+tunnel_listen_port: "{{ tunnel_port }}"
 
 # === Servers ===
 server01_ip: 103.131.85.183

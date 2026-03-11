@@ -36,7 +36,9 @@ ssl_ciphers = ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AE
 
 # UDS Server connection
 uds_server = {{ tunnel_uds_server }}
-uds_token = {{ tunnel_token }}
+# uds_token is automatically written by register-tunnel.sh after REST API registration.
+# DO NOT set it manually here — it will be overwritten on next registration.
+uds_token = PENDING_REGISTRATION
 uds_timeout = 10
 uds_verify_ssl = {{ tunnel_uds_verify_ssl | default('false') }}
 
