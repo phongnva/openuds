@@ -13,6 +13,18 @@
     - openuds
     - deploy
 
+- name: Sync client packages to server static/clients
+  synchronize:
+    src: "../../../src/uds/static/clients/"
+    dest: "{{ src_dir }}/uds/static/clients/"
+    archive: yes
+    delete: yes
+  tags:
+    - app
+    - openuds
+    - deploy
+    - clients
+
 - name: Sync requirements.txt from local machine
   synchronize:
     src: "../../../../requirements.txt"
