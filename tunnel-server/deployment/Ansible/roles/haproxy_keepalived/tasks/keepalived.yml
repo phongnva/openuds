@@ -1,0 +1,56 @@
+---
+# =============================================================================
+# HA Role — Keepalived Tasks
+# =============================================================================
+
+- name: Install Keepalived
+  apt:
+    name: keepalived
+    state: present
+    update_cache: yes
+    cache_valid_time: 3600
+  tags: [keepalived, ha]
+
+# Required so HAProxy can bind to the VIP even when not yet MASTER
+- name: Allow binding to non-local IPs (needed for VIP)
+  sysctl:
+    name: net.ipv4.ip_nonlocal_bind
+    value: "1"
+    sysctl_set: yes
+    reload: yes
+  tags: [keepalived, ha]
+
+# Also allow IP forwarding so VIP can route traffic
+- name: Enable IP forwarding
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_set: yes
+    reload: yes
+  tags: [keepalived, ha]
+
+- name: Ensure /etc/keepalived directory exists
+  file:
+    path: /etc/keepalived
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags: [keepalived, ha]
+
+- name: Deploy Keepalived configuration
+  template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart keepalived
+  tags: [keepalived, ha]
+
+- name: Enable and start Keepalived service
+  systemd:
+    name: keepalived
+    enabled: yes
+    state: started
+  tags: [keepalived, ha]

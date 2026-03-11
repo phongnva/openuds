@@ -1,0 +1,38 @@
+---
+# =============================================================================
+# HA Role — HAProxy Tasks
+# =============================================================================
+
+- name: Install HAProxy
+  apt:
+    name: haproxy
+    state: present
+    update_cache: yes
+    cache_valid_time: 3600
+  tags: [haproxy, ha]
+
+- name: Enable HAProxy init script
+  lineinfile:
+    path: /etc/default/haproxy
+    regexp: '^ENABLED='
+    line: 'ENABLED=1'
+    create: yes
+  tags: [haproxy, ha]
+
+- name: Deploy HAProxy configuration
+  template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    owner: root
+    group: root
+    mode: "0644"
+    validate: "haproxy -c -f %s"
+  notify: reload haproxy
+  tags: [haproxy, ha]
+
+- name: Enable and start HAProxy service
+  systemd:
+    name: haproxy
+    enabled: yes
+    state: started
+  tags: [haproxy, ha]

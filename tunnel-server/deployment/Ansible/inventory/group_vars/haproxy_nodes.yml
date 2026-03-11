@@ -1,0 +1,4 @@
+---
+# Placeholder group_vars for haproxy_nodes group.
+# All relevant variables are defined in group_vars/all.yml
+# Add node-specific overrides here if needed in the future.

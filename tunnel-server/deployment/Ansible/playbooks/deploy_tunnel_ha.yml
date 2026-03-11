@@ -1,0 +1,155 @@
+---
+# =============================================================================
+# OpenUDS Tunnel Server — High-Availability Deployment Playbook
+# =============================================================================
+# Topology:
+#   - Both tunnel nodes run udstunnel (existing role)
+#   - Both tunnel nodes also run HAProxy + Keepalived (HA role)
+#   - Keepalived manages a Virtual IP (VIP) between nodes via VRRP
+#   - HAProxy listens on VIP:8443, load-balances to both udstunnel backends
+#   - OpenUDS is configured to use ONLY the VIP → auto-reconnect on failover
+#
+# Usage:
+#   cd tunnel-server/deployment/Ansible
+#   # Full deploy (first time)
+#   ansible-playbook playbooks/deploy_tunnel_ha.yml
+#
+#   # Re-deploy only the HA layer (HAProxy + Keepalived)
+#   ansible-playbook playbooks/deploy_tunnel_ha.yml --tags ha
+#
+#   # Re-deploy only tunnel nodes
+#   ansible-playbook playbooks/deploy_tunnel_ha.yml --tags tunnel
+#
+#   # Dry run
+#   ansible-playbook playbooks/deploy_tunnel_ha.yml --check --diff
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Play 1 — Deploy udstunnel on all tunnel nodes
+# ---------------------------------------------------------------------------
+- name: Deploy UDS Tunnel Nodes
+  hosts: tunnel_servers
+  become: yes
+  tags: [tunnel]
+
+  roles:
+    - udstunnel
+
+  post_tasks:
+    - name: Verify udstunnel service is running
+      systemd:
+        name: udstunnel
+        state: started
+      tags: [tunnel]
+
+    - name: Check tunnel port is listening on node
+      wait_for:
+        port: "{{ tunnel_port }}"
+        timeout: 15
+      register: node_port_check
+      ignore_errors: yes
+      tags: [tunnel]
+
+    - name: Report tunnel node status
+      debug:
+        msg: |
+          ========================================
+          Tunnel Node: {{ inventory_hostname }} ({{ ansible_host }})
+          Port {{ tunnel_port }}: {{ 'LISTENING' if node_port_check is success else 'NOT listening (check SSL certs)' }}
+          ========================================
+      tags: [tunnel]
+
+# ---------------------------------------------------------------------------
+# Play 2 — Deploy HAProxy + Keepalived on all HA nodes (same servers)
+# ---------------------------------------------------------------------------
+- name: Deploy HA Layer (HAProxy + Keepalived)
+  hosts: haproxy_nodes
+  become: yes
+  tags: [ha]
+
+  roles:
+    - haproxy_keepalived
+
+# ---------------------------------------------------------------------------
+# Play 3 — Post-deployment verification
+# ---------------------------------------------------------------------------
+- name: Verify HA Deployment
+  hosts: tunnel_servers
+  become: yes
+  gather_facts: yes
+  tags: [verify, ha]
+
+  tasks:
+    - name: Check HAProxy service is running
+      systemd:
+        name: haproxy
+        state: started
+      check_mode: no
+      tags: [verify]
+
+    - name: Check Keepalived service is running
+      systemd:
+        name: keepalived
+        state: started
+      check_mode: no
+      tags: [verify]
+
+    - name: Check which node holds the VIP
+      command: ip addr show {{ ha_vip_interface }}
+      register: ip_addr_output
+      changed_when: false
+      tags: [verify]
+
+    - name: Report VIP status per node
+      debug:
+        msg: "{{ inventory_hostname }}: {{ 'VIP ' + ha_vip + ' is ACTIVE on this node ✔' if ha_vip in ip_addr_output.stdout else 'VIP ' + ha_vip + ' is NOT on this node (standby)' }}"
+      tags: [verify]
+
+    - name: Check HAProxy stats page is reachable
+      uri:
+        url: "http://127.0.0.1:{{ haproxy_stats_port }}/stats"
+        url_username: "{{ haproxy_stats_user }}"
+        url_password: "{{ haproxy_stats_pass }}"
+        force_basic_auth: yes
+        status_code: 200
+      register: stats_check
+      ignore_errors: yes
+      tags: [verify]
+
+    - name: Report HAProxy stats page status
+      debug:
+        msg: "{{ inventory_hostname }}: HAProxy stats page {{ 'reachable ✔' if stats_check is success else 'NOT reachable ✗ (check credentials/port)' }}"
+      tags: [verify]
+
+- name: Verify VIP is accessible from control node
+  hosts: localhost
+  gather_facts: no
+  tags: [verify, ha]
+
+  tasks:
+    - name: Check VIP port is reachable from control node
+      wait_for:
+        host: "{{ ha_vip }}"
+        port: "{{ haproxy_frontend_port }}"
+        timeout: 10
+      register: vip_check
+      ignore_errors: yes
+
+    - name: Display final HA deployment summary
+      debug:
+        msg: |
+          ============================================================
+          OpenUDS Tunnel HA — Deployment Complete!
+          ============================================================
+          Virtual IP (VIP):  {{ ha_vip }}:{{ haproxy_frontend_port }}
+          VIP reachable:     {{ 'YES ✔' if vip_check is success else 'NO ✗ — check Keepalived + firewall' }}
+
+          Next steps:
+            1. Update OpenUDS tunnel server URL to https://{{ ha_vip }}:{{ haproxy_frontend_port }}
+            2. Ensure both nodes have matching SSL certs at:
+                 {{ tunnel_ssl_cert }}  (cert)
+                 {{ tunnel_ssl_key }}   (key)
+            3. Test failover:
+                 ssh root@<MASTER> systemctl stop udstunnel
+                 # Verify session reconnects via BACKUP node
+          ============================================================
