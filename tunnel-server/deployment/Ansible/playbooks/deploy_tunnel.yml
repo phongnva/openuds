@@ -16,9 +16,9 @@
     - udstunnel
 
   post_tasks:
-    - name: Verify udstunnel service is running
+    - name: Verify openuds-tunnel service is running
       systemd:
-        name: udstunnel
+        name: openuds-tunnel
         state: started
 
     - name: Check tunnel port is listening

@@ -24,8 +24,7 @@ TUNNEL_IP="{{ ansible_host }}"
 TUNNEL_PORT="{{ tunnel_port }}"
 TUNNEL_CONF="/etc/openuds-tunnel/udstunnel.conf"
 
-# ServerType.TUNNEL = 2 (from uds.core.types.servers)
-SERVER_TYPE=2
+
 
 # ── 1. Obtain a session token (Basic Auth login) ────────────────────────────
 echo "[register-tunnel] Authenticating with UDS Broker at ${UDS_BROKER_URL} ..."
@@ -64,16 +63,10 @@ REGISTER_RESPONSE=$(curl -sf \
   -H "Content-Type: application/json" \
   -H "X-Auth-Token: ${SESSION_TOKEN}" \
   -d "{
-    \"type\": ${SERVER_TYPE},
-    \"hostname\": \"${TUNNEL_HOSTNAME}\",
     \"ip\": \"${TUNNEL_IP}\",
-    \"port\": ${TUNNEL_PORT},
-    \"mac\": \"00:00:00:00:00:00\",
-    \"os\": \"linux\",
-    \"version\": \"4.0.0\",
-    \"subtype\": \"\"
+    \"hostname\": \"${TUNNEL_HOSTNAME}\"
   }" \
-  "${UDS_BROKER_URL}/uds/rest/servers/register")
+  "${UDS_BROKER_URL}/uds/rest/tunnel/register")
 
 if [ -z "${REGISTER_RESPONSE}" ]; then
   echo "[register-tunnel] ERROR: Empty response from register endpoint." >&2
@@ -121,5 +114,5 @@ curl -sf --max-time 10 \
   -H "X-Auth-Token: ${SESSION_TOKEN}" \
   "${UDS_BROKER_URL}/uds/rest/auth/logout" > /dev/null 2>&1 || true
 
-echo "[register-tunnel] Done. Please restart udstunnel to apply the new token."
+echo "[register-tunnel] Done. Please restart openuds-tunnel to apply the new token."
 exit 0

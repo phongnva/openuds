@@ -3,10 +3,10 @@
 # OpenUDS Tunnel Server — High-Availability Deployment Playbook
 # =============================================================================
 # Topology:
-#   - Both tunnel nodes run udstunnel (existing role)
+#   - Both tunnel nodes run openuds-tunnel (existing role)
 #   - Both tunnel nodes also run HAProxy + Keepalived (HA role)
 #   - Keepalived manages a Virtual IP (VIP) between nodes via VRRP
-#   - HAProxy listens on VIP:8443, load-balances to both udstunnel backends
+#   - HAProxy listens on VIP:8443, load-balances to both openuds-tunnel backends
 #   - OpenUDS is configured to use ONLY the VIP → auto-reconnect on failover
 #
 # Usage:
@@ -25,7 +25,7 @@
 # =============================================================================
 
 # ---------------------------------------------------------------------------
-# Play 1 — Deploy udstunnel on all tunnel nodes
+# Play 1 — Deploy openuds-tunnel on all tunnel nodes
 # ---------------------------------------------------------------------------
 - name: Deploy UDS Tunnel Nodes
   hosts: tunnel_servers
@@ -36,9 +36,9 @@
     - udstunnel
 
   post_tasks:
-    - name: Verify udstunnel service is running
+    - name: Verify openuds-tunnel service is running
       systemd:
-        name: udstunnel
+        name: openuds-tunnel
         state: started
       tags: [tunnel]
 
@@ -150,6 +150,6 @@
                  {{ tunnel_ssl_cert }}  (cert)
                  {{ tunnel_ssl_key }}   (key)
             3. Test failover:
-                 ssh root@<MASTER> systemctl stop udstunnel
+                 ssh root@<MASTER> systemctl stop openuds-tunnel
                  # Verify session reconnects via BACKUP node
           ============================================================

@@ -82,13 +82,13 @@ ansible-playbook playbooks/deploy_tunnel_ha.yml --check --diff
 
 ```bash
 # On MASTER node — kill tunnel service
-ssh root@<tunnel01> systemctl stop udstunnel
+ssh root@<tunnel01> systemctl stop openuds-tunnel
 
 # Verify VIP moved to BACKUP
 ssh root@<tunnel02> ip addr show eth0   # should show VIP
 
 # Restore
-ssh root@<tunnel01> systemctl start udstunnel
+ssh root@<tunnel01> systemctl start openuds-tunnel
 ```
 
 ---
@@ -133,9 +133,9 @@ Registration is now done via the UDS Broker REST API automatically during deploy
 The `register-tunnel.sh` script (deployed by Ansible to `/usr/local/bin/`) performs:
 
 1. `POST /uds/rest/auth/login` — authenticates with the UDS Broker (admin credentials)
-2. `POST /uds/rest/servers/register` — registers the tunnel server (`type=2`) and receives a `token`
+2. `POST /uds/rest/tunnel/register` — registers the tunnel server and receives a `token`
 3. Writes `uds_token = <token>` into `/etc/openuds-tunnel/udstunnel.conf`
-4. Restarts `udstunnel` automatically if the token changed
+4. Restarts `openuds-tunnel` automatically if the token changed
 
 > **After registration**, assign the tunnel server to a Tunnel Group in OpenUDS Admin:
 > `Connectivity → Tunnels → [Your Group] → Servers → Assign`
@@ -164,9 +164,9 @@ OS-level kernel tuning applied automatically:
 ## Service Management
 
 ```bash
-sudo systemctl status udstunnel
-sudo systemctl restart udstunnel
-sudo journalctl -u udstunnel -f
+sudo systemctl status openuds-tunnel
+sudo systemctl restart openuds-tunnel
+sudo journalctl -u openuds-tunnel -f
 
 sudo systemctl status haproxy
 sudo systemctl status keepalived

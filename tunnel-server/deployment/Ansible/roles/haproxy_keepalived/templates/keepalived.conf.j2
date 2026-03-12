@@ -12,9 +12,9 @@ vrrp_script chk_haproxy {
     rise      2          # require 2 successes before restoring
 }
 
-# Also track the udstunnel service (optional belt-and-suspenders)
-vrrp_script chk_udstunnel {
-    script    "/usr/bin/systemctl is-active udstunnel"
+# Also track the openuds-tunnel service (optional belt-and-suspenders)
+vrrp_script chk_openuds_tunnel {
+    script    "/usr/bin/systemctl is-active openuds-tunnel"
     interval  5
     weight    -20
     fall      2
@@ -41,7 +41,7 @@ vrrp_instance VI_TUNNEL {
 
     track_script {
         chk_haproxy
-        chk_udstunnel
+        chk_openuds_tunnel
     }
 
     # Log state transitions to syslog

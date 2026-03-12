@@ -3,7 +3,7 @@
   systemd:
     daemon_reload: yes
 
-- name: restart udstunnel
+- name: restart openuds-tunnel
   systemd:
-    name: udstunnel
+    name: openuds-tunnel
     state: restarted

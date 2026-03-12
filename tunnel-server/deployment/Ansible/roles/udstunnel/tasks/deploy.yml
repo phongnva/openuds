@@ -74,7 +74,7 @@
     group: root
     mode: "0640"
   notify:
-    - restart udstunnel
+    - restart openuds-tunnel
 
 - name: Deploy register-tunnel.sh
   template:
@@ -89,17 +89,17 @@
   args:
     creates: /etc/openuds-tunnel/ssl/openuds-tunnel.dh
 
-- name: Deploy udstunnel systemd service
+- name: Deploy openuds-tunnel systemd service
   template:
-    src: udstunnel.service.j2
-    dest: /etc/systemd/system/udstunnel.service
+    src: openuds-tunnel.service.j2
+    dest: /etc/systemd/system/openuds-tunnel.service
   notify:
     - reload systemd
-    - restart udstunnel
+    - restart openuds-tunnel
 
-- name: Enable and start udstunnel service
+- name: Enable and start openuds-tunnel service
   systemd:
-    name: udstunnel
+    name: openuds-tunnel
     enabled: yes
     state: started
 
@@ -109,4 +109,4 @@
   changed_when: "'uds_token updated' in tunnel_register_result.stdout or 'uds_token appended' in tunnel_register_result.stdout"
   failed_when: tunnel_register_result.rc != 0
   notify:
-    - restart udstunnel
+    - restart openuds-tunnel
