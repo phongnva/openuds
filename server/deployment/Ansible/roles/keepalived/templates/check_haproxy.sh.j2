@@ -1,0 +1,4 @@
+#!/bin/sh
+systemctl is-active --quiet haproxy || exit 1
+ss -lnt | grep -Eq '[:.]443[[:space:]]' || exit 1
+ss -lnt | grep -Eq '[:.]{{ haproxy_mysql_port }}[[:space:]]' || exit 1

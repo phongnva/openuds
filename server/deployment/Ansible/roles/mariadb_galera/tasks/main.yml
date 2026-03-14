@@ -1,0 +1,168 @@
+---
+- name: Mark current host as bootstrap candidate when requested
+  ansible.builtin.set_fact:
+    mariadb_is_bootstrap_node: "{{ galera_bootstrap | default(false) | bool or inventory_hostname == (groups['db_servers'] | first) }}"
+  tags:
+    - galera
+    - database
+
+- name: Probe current Galera cluster status
+  ansible.builtin.command:
+    cmd: mysql --defaults-file=/root/.my.cnf -Nse "SHOW STATUS LIKE 'wsrep_cluster_status';"
+  register: mariadb_current_cluster_status
+  changed_when: false
+  failed_when: false
+  tags:
+    - galera
+    - database
+    - verify
+
+- name: Stop MariaDB before cluster orchestration
+  ansible.builtin.service:
+    name: mariadb
+    state: stopped
+  when: "'Primary' not in mariadb_current_cluster_status.stdout"
+  tags:
+    - galera
+    - database
+    - service
+
+- name: Force bootstrap safety flag on bootstrap node
+  ansible.builtin.lineinfile:
+    path: /var/lib/mysql/grastate.dat
+    regexp: '^safe_to_bootstrap:'
+    line: 'safe_to_bootstrap: 1'
+    create: true
+    owner: mysql
+    group: mysql
+    mode: "0644"
+  when:
+    - mariadb_is_bootstrap_node
+    - "'Primary' not in mariadb_current_cluster_status.stdout"
+  tags:
+    - galera
+    - database
+    - config
+
+- name: Bootstrap the Galera cluster
+  ansible.builtin.command:
+    cmd: galera_new_cluster
+  when:
+    - mariadb_is_bootstrap_node
+    - "'Primary' not in mariadb_current_cluster_status.stdout"
+  tags:
+    - galera
+    - database
+    - service
+
+- name: Wait for bootstrap node MariaDB port
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 3306
+    delay: 2
+    timeout: 180
+  when: mariadb_is_bootstrap_node
+  tags:
+    - galera
+    - database
+    - verify
+
+- name: Wait until bootstrap node becomes Primary
+  ansible.builtin.command:
+    cmd: mysql --defaults-file=/root/.my.cnf -Nse "SHOW STATUS LIKE 'wsrep_cluster_status';"
+  register: mariadb_bootstrap_primary_state
+  until: "'Primary' in mariadb_bootstrap_primary_state.stdout"
+  retries: 30
+  delay: 4
+  changed_when: false
+  when: mariadb_is_bootstrap_node
+  tags:
+    - galera
+    - database
+    - verify
+
+- name: Create OpenUDS database and cluster users on bootstrap node
+  ansible.builtin.shell: |
+    mysql --defaults-file=/root/.my.cnf <<'SQL'
+    CREATE DATABASE IF NOT EXISTS `{{ openuds_database_name }}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE USER IF NOT EXISTS '{{ openuds_database_user }}'@'%' IDENTIFIED BY '{{ openuds_database_password }}';
+    GRANT ALL PRIVILEGES ON `{{ openuds_database_name }}`.* TO '{{ openuds_database_user }}'@'%';
+
+    CREATE USER IF NOT EXISTS '{{ galera_sst_user }}'@'%' IDENTIFIED BY '{{ galera_sst_password }}';
+    GRANT RELOAD, LOCK TABLES, PROCESS, REPLICATION CLIENT ON *.* TO '{{ galera_sst_user }}'@'%';
+
+    CREATE USER IF NOT EXISTS '{{ haproxy_mysql_check_user }}'@'%' IDENTIFIED BY '{{ haproxy_mysql_check_password }}';
+    GRANT PROCESS ON *.* TO '{{ haproxy_mysql_check_user }}'@'%';
+
+    CREATE USER IF NOT EXISTS '{{ openuds_replication_user }}'@'%' IDENTIFIED BY '{{ openuds_replication_password }}';
+    GRANT REPLICATION SLAVE ON *.* TO '{{ openuds_replication_user }}'@'%';
+
+    FLUSH PRIVILEGES;
+    SQL
+  args:
+    executable: /bin/bash
+  when: mariadb_is_bootstrap_node
+  changed_when: true
+  tags:
+    - galera
+    - database
+    - db_users
+    - security
+
+- name: Wait for bootstrap node to stay in Primary from joiners
+  ansible.builtin.command:
+    cmd: mysql --defaults-file=/root/.my.cnf -Nse "SHOW STATUS LIKE 'wsrep_cluster_status';"
+  delegate_to: "{{ groups['db_servers'] | first }}"
+  register: mariadb_primary_delegate_status
+  until: "'Primary' in mariadb_primary_delegate_status.stdout"
+  retries: 30
+  delay: 4
+  changed_when: false
+  when: not mariadb_is_bootstrap_node
+  tags:
+    - galera
+    - database
+    - verify
+
+- name: Start MariaDB on joiner nodes
+  ansible.builtin.service:
+    name: mariadb
+    state: started
+  when: not mariadb_is_bootstrap_node
+  tags:
+    - galera
+    - database
+    - service
+
+- name: Wait until joiner nodes become Synced
+  ansible.builtin.command:
+    cmd: mysql --defaults-file=/root/.my.cnf -Nse "SHOW STATUS LIKE 'wsrep_local_state_comment';"
+  register: mariadb_joiner_sync_state
+  until: "'Synced' in mariadb_joiner_sync_state.stdout"
+  retries: 30
+  delay: 4
+  changed_when: false
+  when: not mariadb_is_bootstrap_node
+  tags:
+    - galera
+    - database
+    - verify
+
+- name: Query Galera size and node state
+  ansible.builtin.command:
+    cmd: mysql --defaults-file=/root/.my.cnf -Nse "SHOW STATUS WHERE Variable_name IN ('wsrep_cluster_size','wsrep_local_state_comment');"
+  register: mariadb_galera_verify
+  changed_when: false
+  failed_when: false
+  tags:
+    - galera
+    - database
+    - verify
+
+- name: Print Galera verification result
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }} => {{ mariadb_galera_verify.stdout_lines | default([]) }}"
+  tags:
+    - galera
+    - database
+    - verify

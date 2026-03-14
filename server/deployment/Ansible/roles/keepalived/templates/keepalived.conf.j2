@@ -1,0 +1,43 @@
+global_defs {
+    router_id {{ inventory_hostname | replace('-', '_') }}
+    enable_script_security
+    script_user root
+}
+
+vrrp_script chk_haproxy {
+    script "/usr/local/bin/check_haproxy.sh"
+    interval 2
+    timeout 2
+    fall 2
+    rise 2
+}
+
+vrrp_instance VIP_OPENUDS {
+    state {{ keepalived_state }}
+    interface {{ keepalived_interface | default(ansible_default_ipv4.interface) }}
+    virtual_router_id {{ keepalived_router_id }}
+    priority {{ keepalived_priority }}
+    advert_int 1
+
+    authentication {
+        auth_type PASS
+        auth_pass {{ keepalived_auth_pass }}
+    }
+
+{% if groups['load_balancers'] | length > 1 %}
+    unicast_src_ip {{ ansible_host | default(ansible_default_ipv4.address) }}
+    unicast_peer {
+{% for host in groups['load_balancers'] if host != inventory_hostname %}
+        {{ hostvars[host].ansible_host | default(host) }}
+{% endfor %}
+    }
+{% endif %}
+
+    virtual_ipaddress {
+        {{ vip }}/{{ keepalived_vip_cidr }} dev {{ keepalived_interface | default(ansible_default_ipv4.interface) }}
+    }
+
+    track_script {
+        chk_haproxy
+    }
+}

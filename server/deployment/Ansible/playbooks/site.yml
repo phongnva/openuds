@@ -1,0 +1,72 @@
+- name: Prepare all OpenUDS nodes
+  hosts: uds_servers
+  become: true
+  gather_facts: true
+  roles:
+    - role: common
+
+- name: Install MariaDB and Galera prerequisites
+  hosts: db_servers
+  become: true
+  gather_facts: true
+  roles:
+    - role: mysql
+
+- name: Bootstrap and verify MariaDB Galera cluster
+  hosts: db_servers
+  become: true
+  gather_facts: true
+  roles:
+    - role: mariadb_galera
+
+- name: Deploy OpenUDS application layer
+  hosts: app_servers
+  become: true
+  gather_facts: true
+  roles:
+    - role: openuds
+
+- name: Configure Nginx reverse proxy
+  hosts: web_servers
+  become: true
+  gather_facts: true
+  roles:
+    - role: nginx
+
+- name: Configure HAProxy and Keepalived
+  hosts: load_balancers
+  become: true
+  gather_facts: true
+  roles:
+    - role: haproxy
+    - role: keepalived
+
+- name: Verify cluster services
+  hosts: uds_servers
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Collect service states
+      ansible.builtin.command:
+        cmd: "systemctl is-active {{ item }}"
+      loop:
+        - mariadb
+        - nginx
+        - haproxy
+        - keepalived
+        - openuds-gunicorn
+        - openuds-taskmanager
+      register: openuds_service_states
+      changed_when: false
+      failed_when: false
+      tags:
+        - verify
+        - service
+
+    - name: Print service states
+      ansible.builtin.debug:
+        msg: "{{ item.item }} => {{ item.stdout | default('unknown') }}"
+      loop: "{{ openuds_service_states.results }}"
+      tags:
+        - verify
+        - always

@@ -1,0 +1,135 @@
+---
+- name: Install HAProxy
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    name: haproxy
+    state: present
+  tags:
+    - haproxy
+    - packages
+
+- name: Enable non-local VIP bind
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-openuds-ha.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      net.ipv4.ip_nonlocal_bind = 1
+  register: haproxy_sysctl_file
+  tags:
+    - haproxy
+    - network
+    - config
+
+- name: Apply sysctl settings for VIP binding
+  ansible.builtin.command:
+    cmd: sysctl --system
+  when: haproxy_sysctl_file.changed
+  changed_when: true
+  tags:
+    - haproxy
+    - network
+
+- name: Ensure HAProxy certificate directory exists
+  ansible.builtin.file:
+    path: /etc/haproxy/certs
+    state: directory
+    owner: root
+    group: haproxy
+    mode: "0750"
+  tags:
+    - haproxy
+    - ssl
+    - system
+
+- name: Copy combined PEM for HAProxy
+  ansible.builtin.copy:
+    src: "{{ playbook_dir | dirname }}/files/ssl/{{ domain }}.pem"
+    dest: "/etc/haproxy/certs/{{ domain }}.pem"
+    owner: root
+    group: haproxy
+    mode: "0640"
+  when: ssl_use_pem | bool
+  notify: restart haproxy
+  tags:
+    - haproxy
+    - ssl
+    - security
+
+- name: Ensure certificate fragment directory exists
+  ansible.builtin.file:
+    path: "/etc/haproxy/certs/{{ domain }}"
+    state: directory
+    owner: root
+    group: haproxy
+    mode: "0750"
+  when: not ssl_use_pem | bool
+  tags:
+    - haproxy
+    - ssl
+    - system
+
+- name: Copy certificate fragment
+  ansible.builtin.copy:
+    src: "{{ playbook_dir | dirname }}/files/ssl/{{ domain }}.crt"
+    dest: "/etc/haproxy/certs/{{ domain }}/01-cert.crt"
+    owner: root
+    group: haproxy
+    mode: "0640"
+  when: not ssl_use_pem | bool
+  notify: restart haproxy
+  tags:
+    - haproxy
+    - ssl
+    - security
+
+- name: Copy private key fragment
+  ansible.builtin.copy:
+    src: "{{ playbook_dir | dirname }}/files/ssl/{{ domain }}.key"
+    dest: "/etc/haproxy/certs/{{ domain }}/02-key.key"
+    owner: root
+    group: haproxy
+    mode: "0640"
+  when: not ssl_use_pem | bool
+  notify: restart haproxy
+  tags:
+    - haproxy
+    - ssl
+    - security
+
+- name: Assemble PEM for HAProxy
+  ansible.builtin.assemble:
+    src: "/etc/haproxy/certs/{{ domain }}"
+    dest: "/etc/haproxy/certs/{{ domain }}.pem"
+    owner: root
+    group: haproxy
+    mode: "0640"
+  when: not ssl_use_pem | bool
+  notify: restart haproxy
+  tags:
+    - haproxy
+    - ssl
+    - security
+
+- name: Deploy HAProxy configuration
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart haproxy
+  tags:
+    - haproxy
+    - config
+
+- name: Ensure HAProxy is enabled and started
+  ansible.builtin.service:
+    name: haproxy
+    enabled: true
+    state: started
+  tags:
+    - haproxy
+    - service

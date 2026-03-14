@@ -1,0 +1,204 @@
+---
+- name: Ensure OpenUDS group exists
+  ansible.builtin.group:
+    name: openuds
+    state: present
+  tags:
+    - openuds
+    - app
+    - system
+
+- name: Ensure OpenUDS service account exists
+  ansible.builtin.user:
+    name: openuds
+    group: openuds
+    groups:
+      - www-data
+    append: true
+    shell: /bin/bash
+    home: "{{ openuds_base_dir }}"
+    create_home: false
+    system: true
+    state: present
+  tags:
+    - openuds
+    - app
+    - system
+
+- name: Ensure OpenUDS base directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: openuds
+    group: www-data
+    mode: "0775"
+  loop:
+    - "{{ openuds_base_dir }}"
+    - "{{ openuds_runtime_dir }}"
+    - "{{ openuds_log_dir }}"
+    - "{{ openuds_static_dir }}"
+  tags:
+    - openuds
+    - app
+    - system
+
+- name: Create OpenUDS virtual environment
+  ansible.builtin.command:
+    cmd: "python3 -m venv {{ openuds_venv_dir }}"
+    creates: "{{ openuds_venv_dir }}/bin/activate"
+  tags:
+    - openuds
+    - app
+    - packages
+
+- name: Synchronize OpenUDS source tree
+  ansible.builtin.copy:
+    src: "{{ openuds_local_src_dir }}/"
+    dest: "{{ openuds_base_dir }}/"
+    owner: openuds
+    group: www-data
+    directory_mode: "0775"
+  notify: restart openuds services
+  tags:
+    - openuds
+    - app
+    - deploy
+
+- name: Install OpenUDS Python dependencies
+  ansible.builtin.pip:
+    requirements: "{{ openuds_base_dir }}/requirements.txt"
+    virtualenv: "{{ openuds_venv_dir }}"
+    virtualenv_command: "python3 -m venv"
+  notify: restart openuds services
+  tags:
+    - openuds
+    - app
+    - packages
+
+- name: Render HA settings from full settings.py.sample baseline
+  ansible.builtin.template:
+    src: settings_ha.py.j2
+    dest: "{{ openuds_base_dir }}/src/server/settings_ha.py"
+    owner: openuds
+    group: www-data
+    mode: "0640"
+  notify: restart openuds services
+  tags:
+    - openuds
+    - app
+    - config
+    - security
+
+- name: Deploy Gunicorn systemd service
+  ansible.builtin.template:
+    src: gunicorn.service.j2
+    dest: /etc/systemd/system/openuds-gunicorn.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - reload openuds systemd
+    - restart openuds services
+  tags:
+    - openuds
+    - app
+    - config
+    - service
+
+- name: Deploy TaskManager systemd service
+  ansible.builtin.template:
+    src: taskmanager.service.j2
+    dest: /etc/systemd/system/openuds-taskmanager.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - reload openuds systemd
+    - restart openuds services
+  tags:
+    - openuds
+    - app
+    - config
+    - service
+
+- name: Reload systemd after service definition updates
+  ansible.builtin.systemd:
+    daemon_reload: true
+  tags:
+    - openuds
+    - app
+    - service
+
+- name: Run Django migrations
+  ansible.builtin.command:
+    cmd: "{{ openuds_venv_dir }}/bin/python manage.py migrate --noinput"
+    chdir: "{{ openuds_base_dir }}/src"
+  environment:
+    DJANGO_SETTINGS_MODULE: server.settings_ha
+    PYTHONPATH: "{{ openuds_base_dir }}/src"
+  when:
+    - openuds_run_migrations | bool
+    - inventory_hostname == openuds_migrate_host
+  tags:
+    - openuds
+    - app
+    - migrate
+
+- name: Ensure OpenUDS cache table exists
+  ansible.builtin.command:
+    cmd: "{{ openuds_venv_dir }}/bin/python manage.py createcachetable uds_response_cache"
+    chdir: "{{ openuds_base_dir }}/src"
+  register: openuds_cachetable_result
+  environment:
+    DJANGO_SETTINGS_MODULE: server.settings_ha
+    PYTHONPATH: "{{ openuds_base_dir }}/src"
+  when:
+    - openuds_run_migrations | bool
+    - inventory_hostname == openuds_migrate_host
+  changed_when: "'create table' in (openuds_cachetable_result.stdout | default('') | lower)"
+  failed_when:
+    - openuds_cachetable_result.rc != 0
+    - "'already exists' not in (((openuds_cachetable_result.stdout | default('')) ~ (openuds_cachetable_result.stderr | default(''))) | lower)"
+  tags:
+    - openuds
+    - app
+    - migrate
+
+- name: Collect static assets
+  ansible.builtin.command:
+    cmd: "{{ openuds_venv_dir }}/bin/python manage.py collectstatic --noinput"
+    chdir: "{{ openuds_base_dir }}/src"
+  environment:
+    DJANGO_SETTINGS_MODULE: server.settings_ha
+    PYTHONPATH: "{{ openuds_base_dir }}/src"
+  tags:
+    - openuds
+    - app
+    - migrate
+
+- name: Ensure OpenUDS services are enabled and running
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: "{{ 'restarted' if openuds_force_restart | bool else 'started' }}"
+  loop:
+    - openuds-gunicorn
+    - openuds-taskmanager
+  tags:
+    - openuds
+    - app
+    - service
+
+- name: Flush pending service restarts before health checks
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for Gunicorn socket
+  ansible.builtin.wait_for:
+    path: "{{ openuds_runtime_dir }}/gunicorn.sock"
+    timeout: 120
+  tags:
+    - openuds
+    - app
+    - verify
+
+

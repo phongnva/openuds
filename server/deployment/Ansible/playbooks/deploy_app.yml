@@ -1,0 +1,9 @@
+- name: Push OpenUDS application code to app nodes
+  hosts: app_servers
+  become: true
+  gather_facts: true
+  vars:
+    openuds_force_restart: true
+    openuds_run_migrations: true
+  roles:
+    - role: openuds

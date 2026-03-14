@@ -1,0 +1,12 @@
+---
+- name: validate haproxy configuration
+  ansible.builtin.command:
+    cmd: haproxy -c -f /etc/haproxy/haproxy.cfg
+  changed_when: false
+  listen: restart haproxy
+
+- name: restart haproxy
+  ansible.builtin.service:
+    name: haproxy
+    state: restarted
+  listen: restart haproxy

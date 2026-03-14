@@ -1,0 +1,19 @@
+---
+- name: reload openuds systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen: reload openuds systemd
+
+- name: restart gunicorn
+  ansible.builtin.systemd:
+    name: openuds-gunicorn
+    enabled: true
+    state: restarted
+  listen: restart openuds services
+
+- name: restart taskmanager
+  ansible.builtin.systemd:
+    name: openuds-taskmanager
+    enabled: true
+    state: restarted
+  listen: restart openuds services

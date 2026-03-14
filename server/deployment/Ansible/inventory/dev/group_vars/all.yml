@@ -1,0 +1,54 @@
+domain: uds.dev.local
+vip: 192.0.2.10
+keepalived_vip_cidr: 24
+keepalived_router_id: 51
+keepalived_auth_pass: dev-keepalived-pass
+keepalived_interface: "{{ ansible_default_ipv4.interface }}"
+
+ssl_use_pem: true
+haproxy_mysql_port: 3307
+haproxy_stats_bind: 127.0.0.1:8404
+cors_allowed_origin: "https://{{ domain }}"
+
+common_swap_size_mb: 1024
+common_timezone: Asia/Ho_Chi_Minh
+
+openuds_base_dir: /opt/openuds
+openuds_venv_dir: /opt/openuds/venv
+openuds_runtime_dir: /run/openuds
+openuds_log_dir: /opt/openuds/src/log
+openuds_static_dir: /opt/openuds/src/static
+openuds_local_src_dir: "{{ playbook_dir | dirname | dirname | dirname }}"
+openuds_gunicorn_workers: 2
+openuds_log_level: DEBUG
+openuds_secret_key: dev-openuds-secret-key
+openuds_rsa_private_key: |
+  -----BEGIN RSA PRIVATE KEY-----
+  dev-placeholder-key
+  -----END RSA PRIVATE KEY-----
+openuds_allowed_hosts:
+  - "{{ domain }}"
+  - "{{ vip }}"
+openuds_csrf_trusted_origins:
+  - "https://{{ domain }}"
+  - "https://{{ vip }}"
+openuds_migrate_host: "{{ groups['app_servers'] | first }}"
+openuds_force_restart: false
+openuds_run_migrations: true
+
+openuds_database_name: dbuds
+openuds_database_user: dbuds
+openuds_database_password: dev-db-password
+mysql_root_password: dev-root-password
+mysql_bind_address: 0.0.0.0
+
+galera_cluster_name: openuds-galera-dev
+galera_sst_method: mariabackup
+galera_sst_user: sstuser
+galera_sst_password: dev-sst-password
+
+haproxy_mysql_check_user: haproxy_check
+haproxy_mysql_check_password: dev-haproxy-check
+openuds_replication_user: repl_monitor
+openuds_replication_password: dev-repl-password
+

@@ -1,0 +1,20 @@
+[Unit]
+Description=OpenUDS Task Manager
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=openuds
+Group=www-data
+WorkingDirectory={{ openuds_base_dir }}/src
+Environment=DJANGO_SETTINGS_MODULE=server.settings_ha
+Environment=PYTHONPATH={{ openuds_base_dir }}/src
+ExecStart={{ openuds_venv_dir }}/bin/python manage.py taskManager --start --foreground
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

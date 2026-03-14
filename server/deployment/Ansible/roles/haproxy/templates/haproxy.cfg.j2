@@ -1,0 +1,60 @@
+global
+    log /dev/log local0
+    log /dev/log local1 notice
+    chroot /var/lib/haproxy
+    stats socket /run/haproxy/admin.sock mode 660 level admin expose-fd listeners
+    stats timeout 30s
+    user haproxy
+    group haproxy
+    daemon
+    ssl-default-bind-options no-sslv3 no-tlsv10 no-tlsv11
+    ssl-default-bind-ciphers PROFILE=SYSTEM
+
+defaults
+    log     global
+    mode    http
+    option  httplog
+    option  dontlognull
+    timeout connect 10s
+    timeout client  60s
+    timeout server  60s
+    retries 3
+
+listen stats
+    bind {{ haproxy_stats_bind }}
+    mode http
+    stats enable
+    stats uri /stats
+    stats refresh 10s
+
+frontend https_frontend
+    bind {{ vip }}:443 ssl crt /etc/haproxy/certs/{{ domain }}.pem
+    mode http
+    option forwardfor
+    http-request set-header X-Forwarded-Proto https
+    default_backend web_backends
+
+frontend mysql_frontend
+    bind {{ vip }}:{{ haproxy_mysql_port }}
+    mode tcp
+    default_backend galera_backends
+
+backend web_backends
+    mode http
+    balance roundrobin
+    cookie SERVERID insert indirect nocache
+    http-check send meth GET uri / ver HTTP/1.1 hdr Host {{ domain }}
+    http-check expect status 200
+    default-server inter 3s rise 2 fall 3
+{% for host in groups['web_servers'] %}
+    server {{ host }} {{ hostvars[host].ansible_host | default(host) }}:80 check cookie {{ host }}
+{% endfor %}
+
+backend galera_backends
+    mode tcp
+    balance leastconn
+    option mysql-check user {{ haproxy_mysql_check_user }}
+    default-server inter 3s rise 2 fall 3
+{% for host in groups['db_servers'] %}
+    server {{ host }} {{ hostvars[host].ansible_host | default(host) }}:3306 check
+{% endfor %}

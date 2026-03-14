@@ -1,0 +1,26 @@
+[Unit]
+Description=OpenUDS Gunicorn service
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=openuds
+Group=www-data
+WorkingDirectory={{ openuds_base_dir }}/src
+Environment=DJANGO_SETTINGS_MODULE=server.settings_ha
+Environment=PYTHONPATH={{ openuds_base_dir }}/src
+RuntimeDirectory=openuds
+RuntimeDirectoryMode=0775
+UMask=0007
+ExecStartPre=/usr/bin/install -d -o openuds -g www-data -m 0775 {{ openuds_runtime_dir }}
+ExecStartPre=/usr/bin/bash -c 'rm -f {{ openuds_runtime_dir }}/gunicorn.sock'
+ExecStart={{ openuds_venv_dir }}/bin/gunicorn server.wsgi:application --name openuds --workers {{ openuds_gunicorn_workers }} --bind unix:{{ openuds_runtime_dir }}/gunicorn.sock --access-logfile - --error-logfile - --timeout 120
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+KillSignal=SIGQUIT
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

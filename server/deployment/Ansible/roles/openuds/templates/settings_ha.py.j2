@@ -1,0 +1,35 @@
+# Generated from the full baseline settings file plus HA-specific overrides.
+{% set baseline_settings = lookup('ansible.builtin.file', role_path + '/../../../../src/server/settings.py.sample') %}
+{{ baseline_settings }}
+
+# --- HA overrides ---
+DEBUG = False
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECRET_KEY = "{{ openuds_secret_key }}"
+RSA_KEY = r'''{{ openuds_rsa_private_key }}'''
+ALLOWED_HOSTS = {{ openuds_allowed_hosts | to_json }}
+CSRF_TRUSTED_ORIGINS = {{ openuds_csrf_trusted_origins | to_json }}
+
+DATABASES["default"] = {
+    "ENGINE": "django.db.backends.mysql",
+    "OPTIONS": {
+        "isolation_level": "read committed",
+    },
+    "NAME": "{{ openuds_database_name }}",
+    "USER": "{{ openuds_database_user }}",
+    "PASSWORD": "{{ openuds_database_password }}",
+    "HOST": "{{ vip }}",
+    "PORT": "{{ haproxy_mysql_port }}",
+}
+
+CACHES["memory"] = {
+    "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+}
+
+TIME_ZONE = "{{ common_timezone }}"
+STATIC_ROOT = "{{ openuds_static_dir }}"
+LOGDIR = "{{ openuds_log_dir }}"
+LOGLEVEL = "{{ openuds_log_level }}"

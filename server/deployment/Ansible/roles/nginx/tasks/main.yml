@@ -1,0 +1,51 @@
+---
+- name: Install Nginx
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    name: nginx
+    state: present
+  tags:
+    - nginx
+    - packages
+
+- name: Deploy OpenUDS Nginx site
+  ansible.builtin.template:
+    src: nginx_uds.conf.j2
+    dest: /etc/nginx/sites-available/openuds.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart nginx
+  tags:
+    - nginx
+    - config
+
+- name: Enable OpenUDS Nginx site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/openuds.conf
+    dest: /etc/nginx/sites-enabled/openuds.conf
+    state: link
+  notify: restart nginx
+  tags:
+    - nginx
+    - config
+
+- name: Disable default Nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: restart nginx
+  tags:
+    - nginx
+    - config
+
+- name: Ensure Nginx is enabled and started
+  ansible.builtin.service:
+    name: nginx
+    enabled: true
+    state: started
+  tags:
+    - nginx
+    - service
+

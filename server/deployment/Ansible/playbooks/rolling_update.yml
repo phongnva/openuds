@@ -1,0 +1,52 @@
+- name: Rolling update OpenUDS application nodes
+  hosts: app_servers
+  become: true
+  gather_facts: true
+  serial: 1
+  vars:
+    openuds_force_restart: true
+    openuds_run_migrations: "{{ inventory_hostname == (groups['app_servers'] | first) }}"
+  pre_tasks:
+    - name: Drain current node from every HAProxy instance
+      ansible.builtin.shell: |
+        echo "disable server web_backends/{{ inventory_hostname }}" | socat stdio /run/haproxy/admin.sock
+      args:
+        executable: /bin/bash
+      delegate_to: "{{ item }}"
+      loop: "{{ groups['load_balancers'] }}"
+      changed_when: false
+      failed_when: false
+      tags:
+        - rolling_update
+        - haproxy
+
+    - name: Wait for connections to drain
+      ansible.builtin.pause:
+        seconds: 10
+      tags:
+        - rolling_update
+
+  roles:
+    - role: openuds
+
+  post_tasks:
+    - name: Wait for Gunicorn socket after update
+      ansible.builtin.wait_for:
+        path: "{{ openuds_runtime_dir }}/gunicorn.sock"
+        timeout: 120
+      tags:
+        - rolling_update
+        - verify
+
+    - name: Re-enable current node on every HAProxy instance
+      ansible.builtin.shell: |
+        echo "enable server web_backends/{{ inventory_hostname }}" | socat stdio /run/haproxy/admin.sock
+      args:
+        executable: /bin/bash
+      delegate_to: "{{ item }}"
+      loop: "{{ groups['load_balancers'] }}"
+      changed_when: false
+      failed_when: false
+      tags:
+        - rolling_update
+        - haproxy
