@@ -1,0 +1,64 @@
+# -*- coding: utf-8 -*-
+"""Django settings for OpenUDS HA deployment."""
+import os
+
+_base_dir = os.path.dirname(os.path.abspath(__file__))
+_settings_file = os.path.join(_base_dir, 'settings.py')
+_sample_file = os.path.join(_base_dir, 'settings.py.sample')
+if not os.path.exists(_settings_file) and os.path.exists(_sample_file):
+    import shutil
+    shutil.copy2(_sample_file, _settings_file)
+
+from server.settings import *  # noqa: F401, F403
+
+# HA deployment overrides only what differs from the sample settings.
+DEBUG = {{ django_debug }}
+SECRET_KEY = '{{ django_secret_key }}'
+ALLOWED_HOSTS = '{{ django_allowed_hosts }}'.split(',')
+
+DATABASES.setdefault('default', {})
+DATABASES['default'].update(  # noqa: F405
+    {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': '{{ db_name }}',
+        'USER': '{{ db_user }}',
+        'PASSWORD': '{{ db_password }}',
+        'HOST': '{{ keepalived_vip | default(vip) }}',
+        'PORT': '{{ haproxy_mysql_port | default(3307) }}',
+    }
+)
+DATABASES['default'].setdefault('OPTIONS', {})['isolation_level'] = 'read committed'  # noqa: F405
+DATABASES.setdefault('persistent', {})
+DATABASES['persistent'].update(  # noqa: F405
+    {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'persistent.sqlite3'),  # noqa: F405
+    }
+)
+DATABASES['persistent'].setdefault('OPTIONS', {}).update({'timeout': 20, 'transaction_mode': 'IMMEDIATE'})  # noqa: F405
+
+CACHES.setdefault('default', {})
+CACHES['default'].update(  # noqa: F405
+    {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'uds_response_cache',
+    }
+)
+CACHES['default'].setdefault('OPTIONS', {}).update({'MAX_ENTRIES': 5000, 'CULL_FREQUENCY': 3})  # noqa: F405
+CACHES.setdefault('memory', {})
+CACHES['memory'].update(  # noqa: F405
+    {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
+)
+
+# RSA Key from file
+_rsa_key_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'rsa_key.pem')
+if os.path.exists(_rsa_key_file):
+    with open(_rsa_key_file, 'r') as f:
+        RSA_KEY = f.read()
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')  # noqa: F405
+STATIC_URL = '/uds/res/'

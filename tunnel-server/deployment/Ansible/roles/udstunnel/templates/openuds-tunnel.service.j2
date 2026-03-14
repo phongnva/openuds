@@ -1,0 +1,18 @@
+[Unit]
+Description=OpenUDS Tunnel Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory={{ tunnel_src_dir }}
+Environment=PYTHONPATH={{ tunnel_src_dir }}
+ExecStart={{ tunnel_venv_dir }}/bin/python3 udstunnel.py -t -c /etc/openuds-tunnel/udstunnel.conf
+Restart=on-failure
+RestartSec=5
+PrivateTmp=true
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

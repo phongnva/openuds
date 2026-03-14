@@ -1,0 +1,19 @@
+---
+# =============================================================================
+# HA Role — Handlers
+# =============================================================================
+
+- name: reload haproxy
+  service:
+    name: haproxy
+    state: reloaded
+
+- name: restart haproxy
+  service:
+    name: haproxy
+    state: restarted
+
+- name: restart keepalived
+  service:
+    name: keepalived
+    state: restarted

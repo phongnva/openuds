@@ -1,0 +1,122 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  tags:
+    - packages
+    - common
+
+- name: Install software-properties-common (needed for add-apt-repository)
+  apt:
+    name: software-properties-common
+    state: present
+  tags:
+    - packages
+    - common
+
+- name: Add deadsnakes PPA for Python 3.12 (Ubuntu 22.04 does not ship it)
+  apt_repository:
+    repo: ppa:deadsnakes/ppa
+    state: present
+    update_cache: yes
+  when: ansible_distribution == 'Ubuntu' and ansible_distribution_version is version('24.04', '<')
+  tags:
+    - packages
+    - common
+
+- name: Install system dependencies
+  apt:
+    name:
+      - build-essential
+      - pkg-config
+      - python3.12
+      - python3.12-venv
+      - python3.12-dev
+      - libmysqlclient-dev
+      - libmariadb-dev-compat
+      - libmariadb-dev
+      - libldap2-dev
+      - libsasl2-dev
+      - libxml2-dev
+      - libxslt1-dev
+      - libcurl4-openssl-dev
+      - libssl-dev
+      - libjpeg-dev
+      - zlib1g-dev
+      - libcairo2
+      - libpango-1.0-0
+      - libpangocairo-1.0-0
+      - libgdk-pixbuf2.0-0
+      - shared-mime-info
+      - libxmlsec1-dev
+      - pkg-config
+      - libmemcached-dev
+      - git
+      - openssl
+      - curl
+      - netcat-openbsd
+      - acl
+    state: present
+  tags:
+    - packages
+    - common
+
+- name: Create app group
+  group:
+    name: "{{ app_group }}"
+    system: yes
+    state: present
+  tags:
+    - system
+    - common
+
+- name: Create app user
+  user:
+    name: "{{ app_user }}"
+    group: "{{ app_group }}"
+    system: yes
+    shell: /bin/bash
+    home: "{{ app_dir }}"
+    create_home: yes
+  tags:
+    - system
+    - common
+
+- name: Create application directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+  loop:
+    - "{{ app_dir }}"
+    - "{{ log_dir }}"
+    - "{{ src_dir }}/log"
+    - "{{ socket_dir }}"
+    - /etc/openuds
+  tags:
+    - system
+    - common
+
+- name: Create tmpfiles.d for socket directory
+  copy:
+    dest: /etc/tmpfiles.d/openuds.conf
+    content: "d {{ socket_dir }} 0755 {{ app_user }} {{ app_group }} -"
+    mode: "0644"
+  notify: reload tmpfiles
+  tags:
+    - system
+    - common
+
+- name: Deploy environment file
+  template:
+    src: openuds.env.j2
+    dest: /etc/openuds/openuds.env
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600"
+  tags:
+    - config
+    - common

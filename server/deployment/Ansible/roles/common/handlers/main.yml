@@ -1,0 +1,3 @@
+---
+- name: reload tmpfiles
+  command: systemd-tmpfiles --create

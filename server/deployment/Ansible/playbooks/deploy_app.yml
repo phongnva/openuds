@@ -1,0 +1,30 @@
+---
+# =============================================================================
+# OpenUDS HA - Application-only Redeploy
+# =============================================================================
+# Skips database and infrastructure setup, only redeploys the app.
+# Usage:
+#   ansible-playbook -i inventory/prod/hosts.yml playbooks/deploy_app.yml
+# =============================================================================
+
+- name: Redeploy OpenUDS Application
+  hosts: uds_servers
+  become: yes
+  serial: 1  # Rolling deployment — one node at a time
+
+  roles:
+    - openuds
+    - nginx
+
+  post_tasks:
+    - name: Verify app services
+      systemd:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - openuds-server
+        - nginx
+      tags:
+        - service
+        - verify
+        - app

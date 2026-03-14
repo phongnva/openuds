@@ -1,0 +1,58 @@
+---
+# =============================================================================
+# OpenUDS HA - Rolling Update (Zero Downtime)
+# =============================================================================
+# Updates one node at a time, draining from HAProxy first.
+# Usage:
+#   ansible-playbook -i inventory/prod/hosts.yml playbooks/rolling_update.yml
+# =============================================================================
+
+- name: Rolling Update OpenUDS
+  hosts: uds_servers
+  become: yes
+  serial: 1  # One node at a time
+
+  pre_tasks:
+    - name: Disable node in HAProxy
+      command: >
+        echo "disable server uds_backends/uds-{{ inventory_hostname }}" |
+        socat stdio /run/haproxy/admin.sock
+      ignore_errors: yes
+      delegate_to: "{{ item }}"
+      loop: "{{ groups['uds_servers'] }}"
+      tags:
+        - haproxy
+        - rolling_update
+
+    - name: Wait for connections to drain
+      pause:
+        seconds: 10
+      tags:
+        - rolling_update
+
+  roles:
+    - openuds
+    - nginx
+
+  post_tasks:
+    - name: Verify services are healthy
+      systemd:
+        name: "{{ item }}"
+        state: started
+      loop:
+        - openuds-server
+        - nginx
+      tags:
+        - service
+        - verify
+
+    - name: Re-enable node in HAProxy
+      command: >
+        echo "enable server uds_backends/uds-{{ inventory_hostname }}" |
+        socat stdio /run/haproxy/admin.sock
+      ignore_errors: yes
+      delegate_to: "{{ item }}"
+      loop: "{{ groups['uds_servers'] }}"
+      tags:
+        - haproxy
+        - rolling_update

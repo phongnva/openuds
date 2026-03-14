@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Ensure HAProxy service is healthy.
+systemctl is-active --quiet haproxy
+
+# Ensure HAProxy is actively listening on the HTTPS VIP port.
+ss -lnt '( sport = :{{ haproxy_https_port }} )' | awk 'NR>1 {found=1} END {exit found ? 0 : 1}'
+
+# Ensure HAProxy is actively listening on the MariaDB VIP port.
+ss -lnt '( sport = :{{ haproxy_mysql_port }} )' | awk 'NR>1 {found=1} END {exit found ? 0 : 1}'

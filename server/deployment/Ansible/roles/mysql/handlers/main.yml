@@ -1,0 +1,11 @@
+---
+- name: restart mariadb
+  block:
+    - name: Validate MariaDB configuration
+      command: mariadbd --defaults-file=/etc/mysql/mariadb.conf.d/99-galera.cnf --verbose --help
+      changed_when: false
+
+    - name: Restart MariaDB service
+      systemd:
+        name: mariadb
+        state: restarted

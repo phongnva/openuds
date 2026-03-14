@@ -1,0 +1,7 @@
+---
+# In Galera multi-master mode, all nodes are peers.
+# User creation runs only on the bootstrap node AFTER the cluster is up.
+# The mariadb_galera role handles calling this via primary.yml at the right time.
+
+- include_tasks: install.yml
+- include_tasks: configure.yml

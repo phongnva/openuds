@@ -1,0 +1,13 @@
+---
+# =============================================================================
+# HA Role — HAProxy + Keepalived
+# Entry point: includes task files in order
+# =============================================================================
+
+- name: Configure HAProxy
+  import_tasks: haproxy.yml
+  tags: [haproxy, ha]
+
+- name: Configure Keepalived
+  import_tasks: keepalived.yml
+  tags: [keepalived, ha]

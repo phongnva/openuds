@@ -1,0 +1,10 @@
+bin
+*_enterprise*
+udsactor*.deb
+udsactor*.build
+udsactor*.changes
+/udsactor_*.dsc
+/udsactor_*.tar.xz
+/udsactor_*_amd64.buildinfo
+/udsactor*.rpm
+linux/debian/files

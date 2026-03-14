@@ -1,0 +1,174 @@
+---
+# =============================================================================
+# Galera Bootstrap — runs on the designated bootstrap node only
+# Follows the SeveralNines guide:
+# https://severalnines.com/blog/updated-how-bootstrap-mysql-or-mariadb-galera-cluster/
+# =============================================================================
+
+# --- Step 1: Ensure MariaDB is fully stopped before bootstrap ---
+- name: Ensure MariaDB is stopped before bootstrap
+  systemd:
+    name: "{{ galera_service_name }}"
+    state: stopped
+  when: galera_bootstrap | bool
+  ignore_errors: true
+  tags:
+    - database
+    - galera
+
+# --- Step 2: Handle safe_to_bootstrap flag ---
+# Galera 3.19+ requires safe_to_bootstrap: 1 in grastate.dat
+# for the first node. On a fresh install grastate.dat may not exist.
+- name: Check if grastate.dat exists
+  stat:
+    path: "{{ galera_grastate_path }}"
+  register: grastate_file
+  when: galera_bootstrap | bool
+  tags:
+    - database
+    - galera
+
+- name: Create grastate.dat for fresh bootstrap
+  copy:
+    content: |
+      # GALERA saved state
+      version: 2.1
+      uuid: 00000000-0000-0000-0000-000000000000
+      seqno: -1
+      safe_to_bootstrap: 1
+    dest: "{{ galera_grastate_path }}"
+    owner: mysql
+    group: mysql
+    mode: "0644"
+  when:
+    - galera_bootstrap | bool
+    - not grastate_file.stat.exists | default(false)
+  tags:
+    - database
+    - galera
+    - config
+
+- name: Set safe_to_bootstrap flag to 1 (existing grastate.dat)
+  lineinfile:
+    path: "{{ galera_grastate_path }}"
+    regexp: '^safe_to_bootstrap:'
+    line: 'safe_to_bootstrap: 1'
+  when:
+    - galera_bootstrap | bool
+    - grastate_file.stat.exists | default(false)
+  tags:
+    - database
+    - galera
+    - config
+
+# --- Step 3: Bootstrap the cluster ---
+- name: Bootstrap Galera cluster
+  command: "{{ galera_bootstrap_command }}"
+  when: galera_bootstrap | bool
+  tags:
+    - database
+    - galera
+
+# --- Step 4: Wait for the bootstrap node to reach Primary state ---
+- name: Wait for bootstrap node to reach Primary state
+  command: >-
+    {{ galera_mysql_cli }} -Nse "SHOW STATUS LIKE 'wsrep_cluster_status';"
+  register: galera_bootstrap_status
+  changed_when: false
+  failed_when: false
+  until: "'Primary' in (galera_bootstrap_status.stdout | default(''))"
+  retries: 30
+  delay: 3
+  when: galera_bootstrap | bool
+  tags:
+    - database
+    - galera
+
+- name: Fail if bootstrap did not reach Primary state
+  fail:
+    msg: >
+      Galera bootstrap failed — wsrep_cluster_status is not Primary.
+      Output: {{ galera_bootstrap_status.stdout | default('N/A') }}
+      Stderr: {{ galera_bootstrap_status.stderr | default('N/A') }}
+  when:
+    - galera_bootstrap | bool
+    - "'Primary' not in (galera_bootstrap_status.stdout | default(''))"
+  tags:
+    - database
+    - galera
+
+# --- Step 5: Create database users on bootstrap node ---
+# These will replicate to joiners via Galera SST/IST
+- name: Create application database
+  mysql_db:
+    name: "{{ db_name }}"
+    state: present
+    login_user: root
+    login_password: "{{ db_root_password }}"
+  when: galera_bootstrap | bool
+  tags:
+    - database
+    - db_users
+    - galera
+
+- name: Create application user
+  mysql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    host: "%"
+    priv: "{{ db_name }}.*:ALL"
+    login_user: root
+    login_password: "{{ db_root_password }}"
+    state: present
+  no_log: true
+  when: galera_bootstrap | bool
+  tags:
+    - db_users
+    - galera
+    - security
+
+- name: Create SST user for Galera mariabackup
+  mysql_user:
+    name: "{{ galera_sst_user }}"
+    password: "{{ galera_sst_password }}"
+    host: "localhost"
+    priv: "*.*:RELOAD,PROCESS,LOCK TABLES,REPLICATION CLIENT"
+    login_user: root
+    login_password: "{{ db_root_password }}"
+    state: present
+  no_log: true
+  when: galera_bootstrap | bool
+  tags:
+    - db_users
+    - galera
+    - security
+
+- name: Create HAProxy health-check user (no password)
+  mysql_user:
+    name: "{{ haproxy_mysql_check_user }}"
+    host: "%"
+    priv: "*.*:USAGE"
+    login_user: root
+    login_password: "{{ db_root_password }}"
+    state: present
+  when: galera_bootstrap | bool
+  tags:
+    - db_users
+    - galera
+    - haproxy
+
+- name: Create replication user
+  mysql_user:
+    name: "{{ mysql_repl_user }}"
+    password: "{{ mysql_repl_password }}"
+    host: "%"
+    priv: "*.*:REPLICATION SLAVE,REPLICATION CLIENT"
+    login_user: root
+    login_password: "{{ db_root_password }}"
+    state: present
+  no_log: true
+  when: galera_bootstrap | bool
+  tags:
+    - db_users
+    - galera
+    - security

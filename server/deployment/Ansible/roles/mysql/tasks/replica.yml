@@ -1,0 +1,14 @@
+---
+# Galera is multi-master — no traditional replication setup needed.
+# All nodes are equal peers. This file is kept for non-Galera
+# (standard replication) fallback if needed in the future.
+
+- name: Display Galera multi-master notice
+  debug:
+    msg: >
+      This node is part of a Galera multi-master cluster.
+      No traditional primary/replica replication configuration is needed.
+  when: false
+  tags:
+    - database
+    - galera

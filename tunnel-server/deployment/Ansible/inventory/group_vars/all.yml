@@ -1,0 +1,71 @@
+# =============================================================================
+# UDS Tunnel Server - Shared Variables
+# =============================================================================
+
+# === App ===
+python_version: "3.12"
+
+# === Domain & SSL ===
+domain: pv-vds.tk
+ssl_cert_path: /etc/ssl/certs/pv-vds.tk.crt
+ssl_key_path: /etc/ssl/private/pv-vds.tk.key
+
+# === Database ===
+db_name: dbuds
+db_user: dbuds
+db_password: "{{ vault_db_password | default('CHANGE_ME') }}"
+
+# === Tunnel Server ===
+tunnel_port: 8443
+tunnel_app_dir: /opt/openuds-tunnel
+tunnel_src_dir: "{{ tunnel_app_dir }}/src"
+tunnel_venv_dir: "{{ tunnel_app_dir }}/venv"
+tunnel_ssl_cert: /etc/openuds-tunnel/ssl/server.pem
+tunnel_ssl_key: /etc/openuds-tunnel/ssl/server.key
+tunnel_uds_server: "https://{{ domain }}/uds/rest/tunnel/ticket"
+tunnel_uds_verify_ssl: "false"
+tunnel_log_level: INFO
+tunnel_secret: "{{ vault_tunnel_secret | default('MySecret') }}"
+
+# === UDS Broker Admin (dùng đăng ký tunnel qua REST API) ===
+# uds_broker_url: Base URL của UDS Broker (KHÔNG có trailing slash)
+uds_broker_url: "https://{{ domain }}"
+uds_admin_user: "admin"
+# Lưu vào Vault: ansible-vault encrypt_string '<password>' --name vault_uds_admin_password
+uds_admin_password: "{{ vault_uds_admin_password | default('CHANGE_ME') }}"
+# hostname của tunnel server gửi lên khi đăng ký (thường là ansible_host)
+tunnel_hostname: "{{ ansible_host }}"
+# port tunnel listen — gửi lên broker khi register
+tunnel_listen_port: "{{ tunnel_port }}"
+
+# === Servers ===
+server01_ip: 103.131.85.183
+server02_ip: 103.131.85.163
+
+# =============================================================================
+# HA — HAProxy + Keepalived
+# =============================================================================
+
+# Virtual IP (VRRP) — must be in the same subnet as tunnel nodes, unused IP
+ha_vip: CHANGE_ME                  # ← e.g. 103.131.85.190
+ha_vip_cidr: 24
+ha_vip_interface: eth0             # ← interface name on tunnel nodes (eth0 / ens3 / etc.)
+
+# Keepalived VRRP
+keepalived_router_id: 51           # unique per VRRP group on the subnet (1-255)
+keepalived_auth_pass: "{{ vault_keepalived_pass | default('CHANGE_ME') }}"
+
+# HAProxy frontend (clients connect here, on the VIP)
+haproxy_frontend_port: 8443
+# HAProxy backend (connects to udstunnel on each node)
+haproxy_backend_port: 8443
+# HAProxy stats page
+haproxy_stats_port: 9000
+haproxy_stats_user: admin
+haproxy_stats_pass: "{{ vault_haproxy_stats_pass | default('CHANGE_ME') }}"
+# Backend health-check parameters
+haproxy_check_interval: 2000       # ms between health checks
+haproxy_backend_fall: 2            # consecutive failures before marking DOWN
+haproxy_backend_rise: 2            # consecutive successes before marking UP
+# Stick-table session persistence (pin src IP to same backend)
+haproxy_stick_expire: 30m          # how long to remember the binding

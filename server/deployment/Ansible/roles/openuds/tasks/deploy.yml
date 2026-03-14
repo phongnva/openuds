@@ -1,0 +1,185 @@
+---
+- name: Sync source code from local machine to app directory
+  synchronize:
+    src: "../../../src/"
+    dest: "{{ src_dir }}/"
+    archive: yes
+    delete: yes
+    rsync_opts:
+      - "--exclude=__pycache__"
+      - "--exclude=*.pyc"
+  tags:
+    - app
+    - openuds
+    - deploy
+
+- name: Sync client packages to server static/clients
+  synchronize:
+    src: "../../../src/uds/static/clients/"
+    dest: "{{ src_dir }}/uds/static/clients/"
+    archive: yes
+    delete: yes
+  tags:
+    - app
+    - openuds
+    - deploy
+    - clients
+
+- name: Sync requirements.txt from local machine
+  synchronize:
+    src: "../../../../requirements.txt"
+    dest: "{{ app_dir }}/requirements.txt"
+  tags:
+    - app
+    - openuds
+    - deploy
+
+- name: Set ownership for synced directory
+  file:
+    path: "{{ src_dir }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    recurse: yes
+  tags:
+    - app
+    - openuds
+    - system
+
+- name: Set ownership for requirements.txt
+  file:
+    path: "{{ app_dir }}/requirements.txt"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+  tags:
+    - app
+    - openuds
+    - system
+
+- name: Create internal src/log directory for Django
+  file:
+    path: "{{ src_dir }}/log"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+  tags:
+    - app
+    - openuds
+    - system
+
+- name: Create Python virtual environment
+  command: "python{{ python_version }} -m venv {{ venv_dir }}"
+  args:
+    creates: "{{ venv_dir }}/bin/activate"
+  become_user: "{{ app_user }}"
+  tags:
+    - app
+    - openuds
+    - packages
+
+- name: Upgrade pip in virtualenv
+  pip:
+    name: pip
+    state: latest
+    virtualenv: "{{ venv_dir }}"
+  become_user: "{{ app_user }}"
+  tags:
+    - app
+    - openuds
+    - packages
+
+- name: Install Python dependencies
+  shell: |
+    . {{ venv_dir }}/bin/activate
+    export MYSQLCLIENT_CFLAGS="-I/usr/include/mysql"
+    export MYSQLCLIENT_LDFLAGS="-L/usr/lib/x86_64-linux-gnu -lmysqlclient"
+    pip install -r {{ app_dir }}/requirements.txt
+  args:
+    executable: /bin/bash
+  become_user: "{{ app_user }}"
+  tags:
+    - app
+    - openuds
+    - packages
+
+- name: Copy settings.py from sample (if not exists)
+  copy:
+    src: "{{ src_dir }}/server/settings.py.sample"
+    dest: "{{ src_dir }}/server/settings.py"
+    remote_src: yes
+    owner: "{{ app_user }}"
+    force: no
+  tags:
+    - app
+    - openuds
+    - config
+
+- name: Deploy HA settings
+  template:
+    src: settings_ha.py.j2
+    dest: "{{ src_dir }}/server/settings_ha.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+  tags:
+    - app
+    - openuds
+    - config
+
+- name: Generate RSA key (if not exists)
+  command: openssl genrsa -out {{ src_dir }}/server/rsa_key.pem 4096
+  args:
+    creates: "{{ src_dir }}/server/rsa_key.pem"
+  become_user: "{{ app_user }}"
+  tags:
+    - app
+    - openuds
+    - security
+    - ssl
+
+- name: Set RSA key permissions
+  file:
+    path: "{{ src_dir }}/server/rsa_key.pem"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600"
+  tags:
+    - app
+    - openuds
+    - security
+    - ssl
+
+- name: Deploy openuds-server wrapper script
+  template:
+    src: openuds-server.sh.j2
+    dest: "{{ app_dir }}/openuds-server.sh"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+  tags:
+    - app
+    - openuds
+    - config
+
+- name: Deploy openuds-server systemd service
+  template:
+    src: openuds-server.service.j2
+    dest: /etc/systemd/system/openuds-server.service
+  notify:
+    - reload systemd
+    - restart openuds-server
+  tags:
+    - app
+    - openuds
+    - service
+    - config
+
+- name: Enable and start openuds-server
+  systemd:
+    name: openuds-server
+    enabled: yes
+    state: started
+  tags:
+    - app
+    - openuds
+    - service

@@ -1,0 +1,51 @@
+# =============================================================================
+# Keepalived Configuration — Managed by Ansible, do not edit manually
+# =============================================================================
+
+# Track HAProxy process health — if haproxy dies, drop priority by 30
+# so the other node takes the VIP
+vrrp_script chk_haproxy {
+    script    "/usr/bin/killall -0 haproxy"
+    interval  2          # check every 2 seconds
+    weight    -30        # subtract 30 from priority when script fails
+    fall      2          # require 2 failures before triggering
+    rise      2          # require 2 successes before restoring
+}
+
+# Also track the openuds-tunnel service (optional belt-and-suspenders)
+vrrp_script chk_openuds_tunnel {
+    script    "/usr/bin/systemctl is-active openuds-tunnel"
+    interval  5
+    weight    -20
+    fall      2
+    rise      2
+}
+
+vrrp_instance VI_TUNNEL {
+    state             {{ keepalived_state }}    # MASTER on tunnel01, BACKUP on tunnel02
+    interface         {{ ha_vip_interface }}
+    virtual_router_id {{ keepalived_router_id }}
+    priority          {{ keepalived_priority }} # 100 on MASTER, 90 on BACKUP
+
+    advert_int  1
+    preempt                                     # MASTER reclaims VIP when it recovers
+
+    authentication {
+        auth_type PASS
+        auth_pass {{ keepalived_auth_pass }}
+    }
+
+    virtual_ipaddress {
+        {{ ha_vip }}/{{ ha_vip_cidr }} dev {{ ha_vip_interface }} label {{ ha_vip_interface }}:vip
+    }
+
+    track_script {
+        chk_haproxy
+        chk_openuds_tunnel
+    }
+
+    # Log state transitions to syslog
+    notify_master  "/bin/bash -c 'logger -t keepalived \"[TUNNEL-HA] Became MASTER — VIP {{ ha_vip }} is now active on $(hostname)\"'"
+    notify_backup  "/bin/bash -c 'logger -t keepalived \"[TUNNEL-HA] Became BACKUP — VIP {{ ha_vip }} handed off from $(hostname)\"'"
+    notify_fault   "/bin/bash -c 'logger -t keepalived \"[TUNNEL-HA] FAULT STATE on $(hostname) — VIP {{ ha_vip }} lost\"'"
+}

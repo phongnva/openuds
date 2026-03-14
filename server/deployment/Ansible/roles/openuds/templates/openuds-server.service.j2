@@ -1,0 +1,29 @@
+[Unit]
+Description=OpenUDS Server (Gunicorn + TaskManager)
+After=network-online.target mysql.service
+Wants=network-online.target
+Requires=mysql.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User={{ app_user }}
+Group={{ app_group }}
+RuntimeDirectory=openuds
+WorkingDirectory={{ src_dir }}
+Environment="DJANGO_SETTINGS_MODULE={{ django_settings_module }}"
+Environment="PYTHONPATH={{ src_dir }}"
+ExecStart={{ app_dir }}/openuds-server.sh
+ExecStop=/bin/bash -c 'kill $(cat {{ socket_dir }}/gunicorn.pid) 2>/dev/null; kill $MAINPID 2>/dev/null'
+ExecReload=/bin/bash -c 'kill -HUP $(cat {{ socket_dir }}/gunicorn.pid) 2>/dev/null'
+KillMode=process
+Restart=always
+RestartSec=5
+TimeoutStartSec=60
+TimeoutStopSec=60
+LimitNOFILE=65536
+LimitNPROC=65536
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

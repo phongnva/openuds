@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Product Id="*" Name="FSOFT Virtual Desktop Client" Language="1033" Version="1.0.0.0" Manufacturer="FSOFT" UpgradeCode="77f76869-ba64-4853-8758-6b262cdfc789">
+        <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+        <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+        <MediaTemplate EmbedCab="yes" />
+        
+        <Feature Id="ProductFeature" Title="FSOFT Virtual Desktop Client" Level="1">
+            <ComponentGroupRef Id="ProductComponents" />
+        </Feature>
+        <Property Id="REINSTALLMODE" Value="amus" />
+    </Product>
+
+    <Fragment>
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="ProgramFilesFolder">
+                <Directory Id="INSTALLFOLDER" Name="FSOFT Virtual Desktop Client" />
+            </Directory>
+        </Directory>
+    </Fragment>
+
+    <Fragment>
+        <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+            <Component Id="FSOFTClientComponent" Guid="{77f76869-ba64-4853-8758-6b262cdfc012}">
+                <File Id="FSOFTClientEXE" Source="dist\FSOFT Virtual Desktop Client.exe" KeyPath="yes" />
+                
+                <RegistryValue Root="HKCR" Key="uds\shell\open\command" Type="string" Value='"[INSTALLFOLDER]FSOFT Virtual Desktop Client.exe" "%1"' />
+                <RegistryValue Root="HKCR" Key="uds" Type="string" Value="URL:UDS Protocol" />
+                <RegistryKey Root="HKCR" Key="uds">
+                    <RegistryValue Type="string" Name="URL Protocol" Value="" />
+                </RegistryKey>
+                
+                <RegistryValue Root="HKCR" Key="udss\shell\open\command" Type="string" Value='"[INSTALLFOLDER]FSOFT Virtual Desktop Client.exe" "%1"' />
+                <RegistryValue Root="HKCR" Key="udss" Type="string" Value="URL:UDS Protocol SSL" />
+                <RegistryKey Root="HKCR" Key="udss">
+                    <RegistryValue Type="string" Name="URL Protocol" Value="" />
+                </RegistryKey>
+            </Component>
+        </ComponentGroup>
+    </Fragment>
+</Wix>
