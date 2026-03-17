@@ -71,7 +71,18 @@ class StatsManager:
     recv: int
     last: float
     start_time: float  # timestamp
-    end_time: float    
+    end_time: float
+
+    # Latency tracking
+    latency_sum: float  # Sum of all latency measurements
+    latency_count: int  # Number of latency measurements
+    latency_min: float  # Minimum latency
+    latency_max: float  # Maximum latency
+
+    # Last timestamp for RTT calculation
+    _last_sent_time: float
+    _last_recv_time: float
+    _pending_sent_times: typing.Dict[int, float]  # seq -> timestamp
 
     def __init__(self, ns: 'Namespace'):
         self.ns = ns
@@ -81,10 +92,44 @@ class StatsManager:
         self.start_time = time.monotonic()
         self.end_time = self.start_time
 
+        # Initialize latency tracking
+        self.latency_sum = 0.0
+        self.latency_count = 0
+        self.latency_min = float('inf')
+        self.latency_max = 0.0
+        self._last_sent_time = 0.0
+        self._last_recv_time = 0.0
+        self._pending_sent_times = {}
+
     @property
     def current_time(self) -> float:
         return time.monotonic()
 
+    @property
+    def latency_avg(self) -> float:
+        """Average latency in milliseconds"""
+        if self.latency_count == 0:
+            return 0.0
+        return (self.latency_sum / self.latency_count) * 1000.0
+
+    @property
+    def latency_min_ms(self) -> float:
+        """Minimum latency in milliseconds"""
+        return self.latency_min * 1000.0 if self.latency_min != float('inf') else 0.0
+
+    @property
+    def latency_max_ms(self) -> float:
+        """Maximum latency in milliseconds"""
+        return self.latency_max * 1000.0
+
+    def add_latency(self, latency_seconds: float) -> None:
+        """Record a latency measurement"""
+        self.latency_sum += latency_seconds
+        self.latency_count += 1
+        if latency_seconds < self.latency_min:
+            self.latency_min = latency_seconds
+        if latency_seconds > self.latency_max:
+            self.latency_max = latency_seconds
 
     def update(self, force: bool = False):
         now = time.monotonic()
@@ -94,13 +139,30 @@ class StatsManager:
             self.ns.sent += self.sent - self.last_sent
             self.last_sent = self.sent
             self.last_recv = self.recv
+            # Update latency stats
+            self.ns.latency_avg = self.latency_avg
+            self.ns.latency_min = self.latency_min_ms
+            self.ns.latency_max = self.latency_max_ms
 
     def add_recv(self, size: int) -> None:
         self.recv += size
+        now = time.monotonic()
+        # Track RTT if we have pending sent timestamps
+        if self._pending_sent_times:
+            # Use the oldest pending timestamp for RTT estimation
+            oldest_seq = min(self._pending_sent_times.keys())
+            sent_time = self._pending_sent_times.pop(oldest_seq)
+            rtt = now - sent_time
+            self.add_latency(rtt)
+        self._last_recv_time = now
         self.update()
 
     def add_sent(self, size: int) -> None:
         self.sent += size
+        now = time.monotonic()
+        # Store timestamp for RTT calculation (use sent count as sequence)
+        self._pending_sent_times[self.sent] = now
+        self._last_sent_time = now
         self.update()
 
     def decrement_connections(self):
@@ -142,6 +204,10 @@ class GlobalStats:
         self.ns.total = 0
         self.ns.sent = 0
         self.ns.recv = 0
+        # Latency counters (average across all sessions)
+        self.ns.latency_avg = 0.0
+        self.ns.latency_min = 0.0
+        self.ns.latency_max = 0.0
         self.counter = 0
 
     def info(self) -> typing.Iterable[str]:
@@ -149,7 +215,15 @@ class GlobalStats:
 
     @staticmethod
     def get_stats(ns: 'Namespace') -> typing.Iterable[str]:
-        yield ';'.join([str(ns.current), str(ns.total), str(ns.sent), str(ns.recv)])
+        yield ';'.join([
+            str(ns.current),
+            str(ns.total),
+            str(ns.sent),
+            str(ns.recv),
+            f'{float(ns.latency_avg):.2f}',
+            f'{float(ns.latency_min):.2f}',
+            f'{float(ns.latency_max):.2f}'
+        ])
 
 # Stats processor, invoked from command line
 async def getServerStats(detailed: bool = False) -> None:

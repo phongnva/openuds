@@ -171,6 +171,10 @@ async def tunnel_proc_async(pipe: 'Connection', cfg: config.ConfigurationType, n
             except Exception as e:
                 logger.exception('Loading dhparams failed: %s. Using defaults', e)
 
+        # TLS Session Resumption - Store tickets in memory for faster reconnection
+        # TLS 1.3 uses session tickets, TLS 1.2 uses session IDs
+        context.set_session_cache(0, 'off')  # Unlimited session cache size
+
         try:
             while True:
                 address: typing.Optional[typing.Tuple[str, int]] = ('', 0)
@@ -252,7 +256,41 @@ def tunnel_main(args: 'argparse.Namespace') -> None:
         socket.SOCK_STREAM,
     )
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
-    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+    # TCP Performance Optimizations
+    if cfg.tcp_nodelay:
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+    # TCP Keepalive
+    if cfg.tcp_keepalive:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        # Set keepalive parameters (Linux-specific)
+        try:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, cfg.tcp_keepidle)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, cfg.tcp_keepintvl)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, cfg.tcp_keepcnt)
+        except (AttributeError, OSError):
+            pass  # TCP keepalive params not available on all platforms
+
+    # Socket buffer sizes (0 = use system default)
+    if cfg.socket_rcvbuf > 0:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, cfg.socket_rcvbuf)
+    if cfg.socket_sndbuf > 0:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, cfg.socket_sndbuf)
+
+    # TCP_DEFER_ACCEPT - delay accept until data received
+    if cfg.tcp_defer_accept > 0:
+        try:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_DEFER_ACCEPT, cfg.tcp_defer_accept)
+        except (AttributeError, OSError):
+            pass  # TCP_DEFER_ACCEPT not available on all platforms
+
+    # TCP_QUICKACK - immediate ACK (use with caution)
+    if cfg.tcp_quickack:
+        try:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
+        except (AttributeError, OSError):
+            pass  # TCP_QUICKACK not available on all platforms
     # We will not reuse port, we only want a UDS tunnel server running on a port
     # but this may change on future...
     # try:
@@ -299,7 +337,12 @@ def tunnel_main(args: 'argparse.Namespace') -> None:
 
     prcs = processes.Processes(tunnel_proc_async, cfg, stats_collector.ns)
 
-    with ThreadPoolExecutor(max_workers=16) as executor:
+    # Calculate optimal thread pool size based on workers and CPU count
+    # More workers = need more threads for connection handling
+    optimal_threads = min(32, max(16, cfg.workers * 2))
+    logger.info('Using thread pool with %d workers for connection handling', optimal_threads)
+
+    with ThreadPoolExecutor(max_workers=optimal_threads) as executor:
         try:
             while not do_stop.is_set():
                 try:

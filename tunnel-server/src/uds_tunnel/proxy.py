@@ -81,6 +81,24 @@ class Proxy:
         tun: typing.Optional[tunnel.TunnelProtocol] = None
         try:
             tun = tunnel.TunnelProtocol(self)
+
+            # Apply TCP optimizations to the accepted socket
+            if self.cfg.tcp_nodelay:
+                source.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            if self.cfg.tcp_keepalive:
+                source.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                try:
+                    source.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, self.cfg.tcp_keepidle)
+                    source.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, self.cfg.tcp_keepintvl)
+                    source.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, self.cfg.tcp_keepcnt)
+                except (AttributeError, OSError):
+                    pass
+            if self.cfg.tcp_quickack:
+                try:
+                    source.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
+                except (AttributeError, OSError):
+                    pass
+
             # (connect accepted loop not present on AbastractEventLoop definition < 3.10), that's why we use ignore
             await loop.connect_accepted_socket(  # type: ignore
                 lambda: tun, source, ssl=context,

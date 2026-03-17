@@ -41,7 +41,8 @@ LOGFORMAT: typing.Final[str] = (
 )
 
 # MAX Length of read buffer for proxyed requests
-BUFFER_SIZE: typing.Final[int] = 1024 * 16
+# Increased from 16KB to 64KB for better throughput on high-speed networks (VDI)
+BUFFER_SIZE: typing.Final[int] = 1024 * 64  # 64KB
 # Handshake for conversation start
 HANDSHAKE_V1: typing.Final[bytes] = b'\x5AMGB\xA5\x01\x00'
 # Ticket length

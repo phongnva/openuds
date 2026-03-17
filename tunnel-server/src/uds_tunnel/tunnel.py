@@ -32,6 +32,7 @@ import asyncio
 import typing
 import logging
 import socket
+import time
 
 import aiohttp
 
@@ -143,11 +144,42 @@ class TunnelProtocol(asyncio.Protocol):
                     if ':' in self.destination[0] or (self.owner.cfg.ipv6 and '.' not in self.destination[0])
                     else socket.AF_INET
                 )
+
+                # Create socket with optimizations for VDI connection
+                vdi_sock = socket.socket(family, socket.SOCK_STREAM)
+
+                # Apply TCP optimizations
+                if self.owner.cfg.tcp_nodelay:
+                    vdi_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+                if self.owner.cfg.tcp_keepalive:
+                    vdi_sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                    try:
+                        vdi_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, self.owner.cfg.tcp_keepidle)
+                        vdi_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, self.owner.cfg.tcp_keepintvl)
+                        vdi_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, self.owner.cfg.tcp_keepcnt)
+                    except (AttributeError, OSError):
+                        pass
+
+                if self.owner.cfg.tcp_quickack:
+                    try:
+                        vdi_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_QUICKACK, 1)
+                    except (AttributeError, OSError):
+                        pass
+
+                # Apply custom buffer sizes
+                if self.owner.cfg.socket_rcvbuf > 0:
+                    vdi_sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self.owner.cfg.socket_rcvbuf)
+                if self.owner.cfg.socket_sndbuf > 0:
+                    vdi_sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, self.owner.cfg.socket_sndbuf)
+
+                # Connect with timeout
                 (_, self.client) = await loop.create_connection(
                     lambda: tunnel_client.TunnelClientProtocol(self),
                     self.destination[0],
                     self.destination[1],
                     family=family,
+                    sock=vdi_sock,
                 )
 
                 # Resume reading

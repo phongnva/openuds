@@ -74,6 +74,17 @@ class ConfigurationType(typing.NamedTuple):
 
     use_uvloop: bool
 
+    # TCP Performance Options
+    socket_rcvbuf: int  # Socket receive buffer size (0 = system default)
+    socket_sndbuf: int  # Socket send buffer size (0 = system default)
+    tcp_keepalive: bool  # Enable TCP keepalive
+    tcp_keepidle: int  # TCP keepalive idle time (seconds)
+    tcp_keepintvl: int  # TCP keepalive interval (seconds)
+    tcp_keepcnt: int  # TCP keepalive count
+    tcp_nodelay: bool  # TCP_NODELAY (disable Nagle's algorithm)
+    tcp_defer_accept: int  # TCP_DEFER_ACCEPT timeout (seconds)
+    tcp_quickack: bool  # TCP_QUICKACK mode
+
     def __str__(self) -> str:
         return 'Configuration: \n' + '\n'.join(
             f'{k}={v}'
@@ -146,6 +157,17 @@ def read(
             secret=secret,
             allow=set(uds.get('allow', '127.0.0.1').split(',')),
             use_uvloop=uds.get('use_uvloop', 'true').lower() == 'true',
+
+            # TCP Performance Options
+            socket_rcvbuf=int(uds.get('socket_rcvbuf', '0')),
+            socket_sndbuf=int(uds.get('socket_sndbuf', '0')),
+            tcp_keepalive=uds.get('tcp_keepalive', 'true').lower() == 'true',
+            tcp_keepidle=int(uds.get('tcp_keepidle', '60')),
+            tcp_keepintvl=int(uds.get('tcp_keepintvl', '10')),
+            tcp_keepcnt=int(uds.get('tcp_keepcnt', '3')),
+            tcp_nodelay=uds.get('tcp_nodelay', 'true').lower() == 'true',
+            tcp_defer_accept=int(uds.get('tcp_defer_accept', '3')),
+            tcp_quickack=uds.get('tcp_quickack', 'false').lower() == 'true',
         )
     except ValueError as e:
         raise Exception(
