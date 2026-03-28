@@ -1,0 +1,48 @@
+---
+# =============================================================================
+# Role: keepalived - VIP failover
+# =============================================================================
+
+- name: Install Keepalived
+  apt:
+    name: keepalived
+    state: present
+
+- name: Deploy Keepalived configuration
+  template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart keepalived
+
+- name: Deploy HAProxy health check script
+  template:
+    src: check_haproxy.sh.j2
+    dest: /etc/keepalived/check_haproxy.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Enable net.ipv4.ip_nonlocal_bind
+  sysctl:
+    name: net.ipv4.ip_nonlocal_bind
+    value: "1"
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: Enable net.ipv4.ip_forward
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: Ensure Keepalived is started and enabled
+  systemd:
+    name: keepalived
+    state: started
+    enabled: yes

@@ -1,0 +1,97 @@
+---
+# =============================================================================
+# Role: common - Base system setup
+# =============================================================================
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install system dependencies
+  apt:
+    name:
+      - build-essential
+      - pkg-config
+      - git
+      - curl
+      - wget
+      - netcat-openbsd
+      - software-properties-common
+      - apt-transport-https
+      - ca-certificates
+      - gnupg
+      - lsb-release
+      # MySQL client libraries
+      - libmysqlclient-dev
+      - default-libmysqlclient-dev
+      # SSL / Crypto
+      - libssl-dev
+      - libffi-dev
+      # XML / XSLT
+      - libxml2-dev
+      - libxslt1-dev
+      # LDAP
+      - libldap2-dev
+      - libsasl2-dev
+      # cURL
+      - libcurl4-openssl-dev
+      # WeasyPrint dependencies
+      - libpango-1.0-0
+      - libpangocairo-1.0-0
+      - libgdk-pixbuf2.0-0
+      - libcairo2
+      - libgirepository1.0-dev
+      - gir1.2-pango-1.0
+      # Memcached
+      - libmemcached-dev
+      - memcached
+      # Misc
+      - acl
+      - openssl
+    state: present
+
+- name: Create application group
+  group:
+    name: "{{ app_group }}"
+    system: yes
+    state: present
+
+- name: Create application user
+  user:
+    name: "{{ app_user }}"
+    group: "{{ app_group }}"
+    system: yes
+    shell: /bin/bash
+    home: "{{ app_base_dir }}"
+    create_home: no
+    state: present
+
+- name: Create application directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+  loop:
+    - "{{ app_base_dir }}"
+    - "{{ app_src_dir }}"
+    - "{{ app_log_dir }}"
+    - "{{ app_static_dir }}"
+    - "{{ app_media_dir }}"
+    - "{{ app_certs_dir }}"
+    - "{{ app_run_dir }}"
+    - "{{ app_venv_dir }}"
+
+- name: Create tmpfiles.d config for runtime directory
+  copy:
+    content: "d {{ app_run_dir }} 0755 {{ app_user }} {{ app_group }} -"
+    dest: /etc/tmpfiles.d/openuds.conf
+    mode: "0644"
+
+- name: Ensure memcached is started and enabled
+  systemd:
+    name: memcached
+    state: started
+    enabled: yes

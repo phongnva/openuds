@@ -1,0 +1,55 @@
+---
+# =============================================================================
+# Role: python - Python 3.12 installation and virtualenv
+# =============================================================================
+
+- name: Add deadsnakes PPA for Python {{ python_version }}
+  apt_repository:
+    repo: "ppa:deadsnakes/ppa"
+    state: present
+    update_cache: yes
+
+- name: Install Python {{ python_version }}
+  apt:
+    name:
+      - "python{{ python_version }}"
+      - "python{{ python_version }}-venv"
+      - "python{{ python_version }}-dev"
+    state: present
+
+- name: Create virtualenv with Python {{ python_version }}
+  command: "{{ python_bin }} -m venv {{ app_venv_dir }}"
+  args:
+    creates: "{{ app_venv_dir }}/bin/activate"
+  become: yes
+  become_user: "{{ app_user }}"
+
+- name: Upgrade pip in virtualenv
+  pip:
+    name:
+      - pip
+      - setuptools
+      - wheel
+    state: latest
+    virtualenv: "{{ app_venv_dir }}"
+  become: yes
+  become_user: "{{ app_user }}"
+
+- name: Copy requirements.txt to server
+  copy:
+    src: requirements.txt
+    dest: "{{ app_base_dir }}/requirements.txt"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0644"
+
+- name: Install Python dependencies from requirements.txt
+  pip:
+    requirements: "{{ app_base_dir }}/requirements.txt"
+    virtualenv: "{{ app_venv_dir }}"
+  become: yes
+  become_user: "{{ app_user }}"
+  environment:
+    PATH: "{{ app_venv_dir }}/bin:/usr/bin:/bin:/usr/local/bin"
+    LDFLAGS: "-L/usr/lib/x86_64-linux-gnu"
+    CPPFLAGS: "-I/usr/include"

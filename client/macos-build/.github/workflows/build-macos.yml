@@ -1,0 +1,514 @@
+# GitHub Actions Workflow: Build UDSClient for macOS (Apple Silicon & Intel)
+# This workflow builds both arm64 and x86_64 DMGs using GitHub-hosted runners.
+# For arm64 builds, use macos-14 (Apple Silicon). For x86_64, use macos-13.
+#
+# Required repository secrets:
+#   APPLE_SIGNING_IDENTITY   — Developer ID Application certificate (base64 encoded)
+#   APPLE_SIGNING_PASSWORD  — Certificate password
+#   APPLE_TEAM_ID           — Apple Developer Team ID
+#   APPLE_ID                — Apple Developer email
+#   APPLE_APP_PASSWORD      — App-specific password for notarytool
+#
+# To set up signing certificate:
+#   1. Create a Developer ID Application certificate at developer.apple.com
+#   2. Export it as .p12 and encode: base64 -i certificate.p12 -o cert.txt
+#   3. Add APPLE_SIGNING_IDENTITY=<contents of cert.txt> to repository secrets
+#   4. Add APPLE_SIGNING_PASSWORD=<p12 password> to repository secrets
+
+name: Build macOS DMG
+
+on:
+  push:
+    branches: [main, master]
+    tags:
+      - 'v*'
+    paths:
+      - 'src/**'
+      - 'requirements.txt'
+      - 'macos-build/**'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'requirements.txt'
+      - 'macos-build/**'
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: 'Architecture'
+        required: true
+        default: 'arm64'
+        type: choice
+        options:
+          - arm64
+          - x86_64
+          - universal
+
+env:
+  VERSION: '4.0.0'
+  PYTHON_VERSION: '3.11'
+  CLIENT_ROOT: ${{ github.workspace }}/uds-client
+
+jobs:
+  # ============================================================
+  # JOB 1: Build Apple Silicon (arm64)
+  # ============================================================
+  build-arm64:
+    runs-on: macos-14  # macOS 14 = Sonoma on Apple Silicon
+    name: Build macOS arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+
+      - name: Install system dependencies
+        run: |
+          brew install pyinstaller create-dmg
+
+      - name: Create virtual environment
+        run: |
+          python -m venv ${{ env.CLIENT_ROOT }}/macos-build/venv
+
+      - name: Install Python dependencies
+        run: |
+          source ${{ env.CLIENT_ROOT }}/macos-build/venv/bin/activate
+          pip install --upgrade pip wheel setuptools
+          pip install -r ${{ env.CLIENT_ROOT }}/requirements.txt
+          pip install pyinstaller
+
+      - name: Generate spec file
+        run: |
+          cat > ${{ env.CLIENT_ROOT }}/macos-build/UDSClient.spec << 'SPECEOF'
+          # -*- mode: python ; coding: utf-8 -*-
+          import sys, os
+          from PyInstaller.utils.hooks import collect_data_files
+
+          datas = collect_data_files('PySide6', include_py_files=False)
+
+          hiddenimports = [
+              'certifi', 'cryptography', 'psutil',
+              'uds', 'uds.ui', 'uds.rest', 'uds.tunnel', 'uds.log',
+              'uds.consts', 'uds.exceptions', 'uds.tools', 'uds.os_detector',
+              'uds.net.udssock', 'uds.types',
+              'UDSClient', 'UDSClientLauncher',
+              'uds.ui.pyside6.UDSWindow', 'uds.ui.pyside6.UDSLauncherMac',
+              'uds.ui.pyside6.UDSResources_rc',
+              'PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets',
+          ]
+
+          a = Analysis(
+              ['${{ env.CLIENT_ROOT }}/src/UDSClientLauncher.py'],
+              pathex=[],
+              binaries=[],
+              datas=datas,
+              hiddenimports=hiddenimports,
+              hookspath=[],
+              hooksconfig={},
+              runtime_hooks=[],
+              excludes=['tkinter', 'matplotlib', 'numpy', 'scipy', 'pandas'],
+              win_no_prefer_redirects=False,
+              win_private_assemblies=False,
+              cipher=None,
+              noarchive=False,
+              optimize=0,
+          )
+
+          pyz = PYZ(a.pure)
+
+          exe = EXE(
+              pyz, a.scripts, a.binaries, a.datas, [],
+              name='UDSClient',
+              debug=False,
+              bootloader_ignore_signals=False,
+              strip=False,
+              upx=False,
+              runtime_tmpdir=None,
+              console=False,
+              disable_windowed_traceback=False,
+              argv_emulation=True,
+              target_arch='arm64',
+              codesign_identity=None,
+              entitlements_file=None,
+          )
+
+          app = BUNDLE(
+              exe,
+              name='UDSClient.app',
+              info_plist={
+                  'CFBundleName': 'UDSClient',
+                  'CFBundleDisplayName': 'UDS Client',
+                  'CFBundleIdentifier': 'com.udsenterprise.UDSClient3',
+                  'CFBundleVersion': '${{ env.VERSION }}',
+                  'CFBundleShortVersionString': '${{ env.VERSION }}',
+                  'CFBundlePackageType': 'APPL',
+                  'CFBundleExecutable': 'UDSClient',
+                  'LSMinimumSystemVersion': '12.0',
+                  'LSApplicationCategoryType': 'public.app-category.productivity',
+                  'NSHighResolutionCapable': True,
+                  'NSPrincipalClass': 'NSApplication',
+                  'CFBundleURLTypes': [
+                      {'CFBundleURLName': 'UDS Standard', 'CFBundleURLSchemes': ['uds']},
+                      {'CFBundleURLName': 'UDS Secure',  'CFBundleURLSchemes': ['udss']},
+                  ],
+                  'QT_QPA_PLATFORM': 'cocoa',
+              },
+              macos_module_content=[],
+              force_kernel_extension=False,
+              arch='arm64',
+          )
+          SPECEOF
+
+      - name: Run PyInstaller
+        run: |
+          source ${{ env.CLIENT_ROOT }}/macos-build/venv/bin/activate
+          cd ${{ env.CLIENT_ROOT }}/src
+          pyinstaller \
+              ${{ env.CLIENT_ROOT }}/macos-build/UDSClient.spec \
+              --noconfirm \
+              --distpath ${{ env.CLIENT_ROOT }}/macos-build/dist-arm64 \
+              --workpath ${{ env.CLIENT_ROOT }}/macos-build/build-arm64
+
+      - name: Copy Qt plugins
+        run: |
+          VENV_SITE=$(source ${{ env.CLIENT_ROOT }}/macos-build/venv/bin/activate && python -c "import site; print(site.getsitepackages()[0])")
+          PLUGINS_DIR="${{ env.CLIENT_ROOT }}/macos-build/dist-arm64/UDSClient.app/Contents/Resources/qt_plugins"
+          mkdir -p "$PLUGINS_DIR"
+          for plugin_type in platforms styles imageformats iconengines; do
+              src="$VENV_SITE/PySide6/plugins/$plugin_type"
+              dst="$PLUGINS_DIR/$plugin_type"
+              if [ -d "$src" ]; then
+                  mkdir -p "$dst"
+                  cp -rn "$src"/* "$dst/" 2>/dev/null || true
+              fi
+          done
+          # Write qt.conf
+          echo '[Paths]
+          Plugins = Resources/qt_plugins' > "${{ env.CLIENT_ROOT }}/macos-build/dist-arm64/UDSClient.app/Contents/Resources/qt.conf"
+
+      - name: Verify architecture
+        run: |
+          file ${{ env.CLIENT_ROOT }}/macos-build/dist-arm64/UDSClient.app/Contents/MacOS/UDSClient
+
+      - name: Create DMG
+        id: dmg-arm64
+        run: |
+          cd ${{ env.CLIENT_ROOT }}/macos-build
+          create-dmg \
+              --volname "UDSClient ${{ env.VERSION }}" \
+              --window-pos 200 120 \
+              --window-size 640 420 \
+              --icon "UDSClient.app" 160 185 \
+              --app-drop-link 480 185 \
+              --hide-extension "UDSClient.app" \
+              "UDSClient-${{ env.VERSION }}-arm64.dmg" \
+              "dist-arm64/"
+          ls -lh "UDSClient-${{ env.VERSION }}-arm64.dmg"
+
+      - name: Upload arm64 DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: UDSClient-dmg-arm64
+          path: ${{ env.CLIENT_ROOT }}/macos-build/UDSClient-${{ env.VERSION }}-arm64.dmg
+          retention-days: 30
+
+      # --- Code Signing (optional, only if secrets are set) ---
+      - name: Import signing certificate
+        if: env.APPLE_SIGNING_IDENTITY != ''
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+        run: |
+          # Import the certificate
+          echo "${{ secrets.APPLE_SIGNING_IDENTITY }}" | base64 --decode --output /tmp/certificate.p12
+          keychain密码=/tmp/app.keychain-db
+          security create-keychain -p "" /tmp/app.keychain-db
+          security default-keychain -s /tmp/app.keychain-db
+          security unlock-keychain -p "" /tmp/app.keychain-db
+          security import /tmp/certificate.p12 -P "${{ secrets.APPLE_SIGNING_PASSWORD }}" -A -t cert -f pkcs12 -k /tmp/app.keychain-db
+          security set-keychain-settings /tmp/app.keychain-db
+          security list-keychains -s /tmp/app.keychain-db
+
+      - name: Sign app bundle
+        if: env.APPLE_SIGNING_IDENTITY != ''
+        run: |
+          codesign --force --deep \
+              --sign "${{ secrets.APPLE_SIGNING_IDENTITY }}" \
+              --options runtime \
+              "${{ env.CLIENT_ROOT }}/macos-build/dist-arm64/UDSClient.app"
+          codesign --verify --verbose=2 "${{ env.CLIENT_ROOT }}/macos-build/dist-arm64/UDSClient.app"
+
+      - name: Notarize app
+        if: env.APPLE_SIGNING_IDENTITY != ''
+        run: |
+          hdiutil create -volname "UDSClient" -srcfolder "${{ env.CLIENT_ROOT }}/macos-build/dist-arm64/UDSClient.app" \
+              -ov -format UDZO temp-unsigned.dmg
+          xcrun notarytool submit temp-unsigned.dmg \
+              --apple-id "${{ secrets.APPLE_ID }}" \
+              --password "${{ secrets.APPLE_APP_PASSWORD }}" \
+              --team-id "${{ secrets.APPLE_TEAM_ID }}" \
+              --wait
+          xcrun stapler staple "${{ env.CLIENT_ROOT }}/macos-build/dist-arm64/UDSClient.app"
+          rm -f temp-unsigned.dmg
+
+      - name: Create signed DMG
+        if: env.APPLE_SIGNING_IDENTITY != ''
+        run: |
+          cd ${{ env.CLIENT_ROOT }}/macos-build
+          create-dmg \
+              --codesign \
+              --volname "UDSClient ${{ env.VERSION }}" \
+              --window-pos 200 120 \
+              --window-size 640 420 \
+              --icon "UDSClient.app" 160 185 \
+              --app-drop-link 480 185 \
+              --hide-extension "UDSClient.app" \
+              "UDSClient-${{ env.VERSION }}-arm64-signed.dmg" \
+              "dist-arm64/"
+
+      - name: Upload signed DMG artifact
+        if: env.APPLE_SIGNING_IDENTITY != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: UDSClient-dmg-arm64-signed
+          path: ${{ env.CLIENT_ROOT }}/macos-build/UDSClient-${{ env.VERSION }}-arm64-signed.dmg
+          retention-days: 30
+
+  # ============================================================
+  # JOB 2: Build Intel (x86_64)
+  # ============================================================
+  build-x86_64:
+    runs-on: macos-13  # macOS 13 = Ventura on Intel
+    name: Build macOS x86_64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+
+      - name: Install system dependencies
+        run: |
+          brew install pyinstaller create-dmg
+
+      - name: Create virtual environment
+        run: |
+          python -m venv ${{ env.CLIENT_ROOT }}/macos-build/venv-x86
+          # Ensure x86_64 arch
+          arch -x86_64 /usr/local/bin/python3.11 -m venv ${{ env.CLIENT_ROOT }}/macos-build/venv-x86 || \
+          arch -x86_64 python3 -m venv ${{ env.CLIENT_ROOT }}/macos-build/venv-x86 || \
+          python -m venv ${{ env.CLIENT_ROOT }}/macos-build/venv-x86
+
+      - name: Install Python dependencies
+        run: |
+          # Try Rosetta python first, fallback to native
+          PYTHON_BIN="${{ env.CLIENT_ROOT }}/macos-build/venv-x86/bin/python"
+          if arch -x86_64 $PYTHON_BIN --version 2>/dev/null; then
+            : # OK
+          else
+            PYTHON_BIN="${{ env.CLIENT_ROOT }}/macos-build/venv-x86/bin/python3"
+          fi
+          $PYTHON_BIN -m pip install --upgrade pip wheel setuptools
+          $PYTHON_BIN -m pip install -r ${{ env.CLIENT_ROOT }}/requirements.txt
+          $PYTHON_BIN -m pip install pyinstaller
+
+      - name: Generate spec file
+        run: |
+          cat > ${{ env.CLIENT_ROOT }}/macos-build/UDSClient-x86_64.spec << 'SPECEOF'
+          # -*- mode: python ; coding: utf-8 -*-
+          import sys, os
+          from PyInstaller.utils.hooks import collect_data_files
+
+          datas = collect_data_files('PySide6', include_py_files=False)
+
+          hiddenimports = [
+              'certifi', 'cryptography', 'psutil',
+              'uds', 'uds.ui', 'uds.rest', 'uds.tunnel', 'uds.log',
+              'uds.consts', 'uds.exceptions', 'uds.tools', 'uds.os_detector',
+              'uds.net.udssock', 'uds.types',
+              'UDSClient', 'UDSClientLauncher',
+              'uds.ui.pyside6.UDSWindow', 'uds.ui.pyside6.UDSLauncherMac',
+              'uds.ui.pyside6.UDSResources_rc',
+              'PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets',
+          ]
+
+          a = Analysis(
+              ['${{ env.CLIENT_ROOT }}/src/UDSClientLauncher.py'],
+              pathex=[],
+              binaries=[],
+              datas=datas,
+              hiddenimports=hiddenimports,
+              excludes=['tkinter', 'matplotlib', 'numpy', 'scipy', 'pandas'],
+              noarchive=False,
+              optimize=0,
+          )
+
+          pyz = PYZ(a.pure)
+
+          exe = EXE(
+              pyz, a.scripts, a.binaries, a.datas, [],
+              name='UDSClient',
+              debug=False,
+              bootloader_ignore_signals=False,
+              strip=False,
+              upx=False,
+              runtime_tmpdir=None,
+              console=False,
+              disable_windowed_traceback=False,
+              argv_emulation=True,
+              target_arch='x86_64',
+          )
+
+          app = BUNDLE(
+              exe,
+              name='UDSClient.app',
+              info_plist={
+                  'CFBundleName': 'UDSClient',
+                  'CFBundleDisplayName': 'UDS Client',
+                  'CFBundleIdentifier': 'com.udsenterprise.UDSClient3',
+                  'CFBundleVersion': '${{ env.VERSION }}',
+                  'CFBundleShortVersionString': '${{ env.VERSION }}',
+                  'CFBundlePackageType': 'APPL',
+                  'CFBundleExecutable': 'UDSClient',
+                  'LSMinimumSystemVersion': '12.0',
+                  'LSApplicationCategoryType': 'public.app-category.productivity',
+                  'NSHighResolutionCapable': True,
+                  'NSPrincipalClass': 'NSApplication',
+                  'CFBundleURLTypes': [
+                      {'CFBundleURLName': 'UDS Standard', 'CFBundleURLSchemes': ['uds']},
+                      {'CFBundleURLName': 'UDS Secure',  'CFBundleURLSchemes': ['udss']},
+                  ],
+                  'QT_QPA_PLATFORM': 'cocoa',
+              },
+              arch='x86_64',
+          )
+          SPECEOF
+
+      - name: Run PyInstaller
+        run: |
+          VENV_BIN="${{ env.CLIENT_ROOT }}/macos-build/venv-x86/bin"
+          source $VENV_BIN/activate
+          cd ${{ env.CLIENT_ROOT }}/src
+          pyinstaller \
+              ${{ env.CLIENT_ROOT }}/macos-build/UDSClient-x86_64.spec \
+              --noconfirm \
+              --distpath ${{ env.CLIENT_ROOT }}/macos-build/dist-x86_64 \
+              --workpath ${{ env.CLIENT_ROOT }}/macos-build/build-x86_64
+
+      - name: Copy Qt plugins
+        run: |
+          VENV_SITE=$(source ${{ env.CLIENT_ROOT }}/macos-build/venv-x86/bin/activate && python -c "import site; print(site.getsitepackages()[0])")
+          PLUGINS_DIR="${{ env.CLIENT_ROOT }}/macos-build/dist-x86_64/UDSClient.app/Contents/Resources/qt_plugins"
+          mkdir -p "$PLUGINS_DIR"
+          for plugin_type in platforms styles imageformats iconengines; do
+              src="$VENV_SITE/PySide6/plugins/$plugin_type"
+              dst="$PLUGINS_DIR/$plugin_type"
+              if [ -d "$src" ]; then
+                  mkdir -p "$dst"
+                  cp -rn "$src"/* "$dst/" 2>/dev/null || true
+              fi
+          done
+          echo '[Paths]
+          Plugins = Resources/qt_plugins' > "${{ env.CLIENT_ROOT }}/macos-build/dist-x86_64/UDSClient.app/Contents/Resources/qt.conf"
+
+      - name: Verify architecture
+        run: |
+          file ${{ env.CLIENT_ROOT }}/macos-build/dist-x86_64/UDSClient.app/Contents/MacOS/UDSClient
+
+      - name: Create DMG
+        run: |
+          cd ${{ env.CLIENT_ROOT }}/macos-build
+          create-dmg \
+              --volname "UDSClient ${{ env.VERSION }}" \
+              --window-pos 200 120 \
+              --window-size 640 420 \
+              --icon "UDSClient.app" 160 185 \
+              --app-drop-link 480 185 \
+              --hide-extension "UDSClient.app" \
+              "UDSClient-${{ env.VERSION }}-x86_64.dmg" \
+              "dist-x86_64/"
+          ls -lh "UDSClient-${{ env.VERSION }}-x86_64.dmg"
+
+      - name: Upload x86_64 DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: UDSClient-dmg-x86_64
+          path: ${{ env.CLIENT_ROOT }}/macos-build/UDSClient-${{ env.VERSION }}-x86_64.dmg
+          retention-days: 30
+
+  # ============================================================
+  # JOB 3: Create Universal DMG (combine arm64 + x86_64)
+  # ============================================================
+  create-universal:
+    needs: [build-arm64, build-x86_64]
+    runs-on: macos-14
+    name: Create Universal DMG
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download arm64 DMG
+        uses: actions/download-artifact@v4
+        with:
+          name: UDSClient-dmg-arm64
+          path: dist-arm64/
+
+      - name: Download x86_64 DMG
+        uses: actions/download-artifact@v4
+        with:
+          name: UDSClient-dmg-x86_64
+          path: dist-x86_64/
+
+      - name: Extract app bundles
+        run: |
+          hdiutil attach dist-arm64/UDSClient-${{ env.VERSION }}-arm64.dmg -mountpoint /tmp/arm64 -nobrowse
+          hdiutil attach dist-x86_64/UDSClient-${{ env.VERSION }}-x86_64.dmg -mountpoint /tmp/x86_64 -nobrowse
+          cp -r /tmp/arm64/UDSClient.app dist-universal/UDSClient.app
+
+      - name: Combine architectures with lipo
+        run: |
+          lipo -create \
+              /tmp/arm64/UDSClient.app/Contents/MacOS/UDSClient \
+              /tmp/x86_64/UDSClient.app/Contents/MacOS/UDSClient \
+              -output dist-universal/UDSClient.app/Contents/MacOS/UDSClient
+
+          # Verify the universal binary
+          file dist-universal/UDSClient.app/Contents/MacOS/UDSClient
+
+      - name: Create Universal DMG
+        run: |
+          create-dmg \
+              --volname "UDSClient ${{ env.VERSION }} Universal" \
+              --window-pos 200 120 \
+              --window-size 640 420 \
+              --icon "UDSClient.app" 160 185 \
+              --app-drop-link 480 185 \
+              --hide-extension "UDSClient.app" \
+              "UDSClient-${{ env.VERSION }}-Universal.dmg" \
+              "dist-universal/"
+
+          ls -lh "UDSClient-${{ env.VERSION }}-Universal.dmg"
+
+      - name: Upload Universal DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: UDSClient-dmg-Universal
+          path: UDSClient-${{ env.VERSION }}-Universal.dmg
+          retention-days: 30
+
+      - name: Cleanup mount points
+        run: |
+          hdiutil detach /tmp/arm64 2>/dev/null || true
+          hdiutil detach /tmp/x86_64 2>/dev/null || true

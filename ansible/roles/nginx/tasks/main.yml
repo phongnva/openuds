@@ -1,0 +1,48 @@
+---
+# =============================================================================
+# Role: nginx - Reverse proxy for OpenUDS
+# =============================================================================
+
+- name: Install Nginx
+  apt:
+    name: nginx
+    state: present
+
+- name: Add www-data to openuds group
+  user:
+    name: www-data
+    groups: "{{ app_group }}"
+    append: yes
+
+- name: Remove default nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: reload nginx
+
+- name: Deploy OpenUDS nginx configuration
+  template:
+    src: openuds-nginx.conf.j2
+    dest: /etc/nginx/sites-available/openuds.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload nginx
+
+- name: Enable OpenUDS nginx site
+  file:
+    src: /etc/nginx/sites-available/openuds.conf
+    dest: /etc/nginx/sites-enabled/openuds.conf
+    state: link
+  notify: reload nginx
+
+- name: Test nginx configuration
+  command: nginx -t
+  register: nginx_test
+  changed_when: false
+
+- name: Ensure nginx is started and enabled
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes

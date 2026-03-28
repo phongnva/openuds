@@ -1,0 +1,47 @@
+# =============================================================================
+# Keepalived Configuration - Ansible Managed
+# =============================================================================
+
+global_defs {
+    router_id OPENUDS_{{ inventory_hostname | upper | replace('-', '_') }}
+    enable_script_security
+    script_user root
+}
+
+vrrp_script check_haproxy {
+    script "/etc/keepalived/check_haproxy.sh"
+    interval 3
+    weight -20
+    fall 3
+    rise 2
+}
+
+vrrp_instance VI_OPENUDS {
+{% if inventory_hostname in groups['openuds_primary'] %}
+    state MASTER
+    priority 101
+{% else %}
+    state BACKUP
+    priority 100
+{% endif %}
+    interface {{ keepalived_interface }}
+    virtual_router_id {{ keepalived_virtual_router_id }}
+    advert_int 1
+
+    authentication {
+        auth_type PASS
+        auth_pass {{ keepalived_auth_pass }}
+    }
+
+    virtual_ipaddress {
+        {{ keepalived_vip }}/24 dev {{ keepalived_interface }}
+    }
+
+    track_script {
+        check_haproxy
+    }
+
+    notify_master "/bin/echo 'MASTER' > /tmp/keepalived_state"
+    notify_backup "/bin/echo 'BACKUP' > /tmp/keepalived_state"
+    notify_fault  "/bin/echo 'FAULT'  > /tmp/keepalived_state"
+}

@@ -1,0 +1,22 @@
+[Unit]
+Description=OpenUDS Server Task Manager
+Documentation=https://github.com/phongnva/openuds
+After=network.target mysql.service openuds-server.service
+Wants=mysql.service openuds-server.service
+
+[Service]
+Type=simple
+User={{ app_user }}
+Group={{ app_group }}
+WorkingDirectory={{ app_src_dir }}
+Environment="DJANGO_SETTINGS_MODULE={{ django_settings_module }}"
+Environment="PATH={{ app_venv_dir }}/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="XDG_CACHE_HOME={{ app_run_dir }}/.cache"
+ExecStart={{ app_venv_dir }}/bin/python manage.py taskManager --start --foreground
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target

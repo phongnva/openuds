@@ -1,0 +1,12 @@
+[Unit]
+Description=OpenUDS Server Socket
+Documentation=https://github.com/phongnva/openuds
+
+[Socket]
+ListenStream={{ gunicorn_socket_path }}
+SocketUser={{ app_user }}
+SocketGroup=www-data
+SocketMode=0660
+
+[Install]
+WantedBy=sockets.target

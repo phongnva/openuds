@@ -1,0 +1,117 @@
+---
+# =============================================================================
+# Role: openuds - Application deployment
+# =============================================================================
+
+- name: Clone/update OpenUDS source code
+  git:
+    repo: "{{ app_git_repo }}"
+    dest: "{{ app_base_dir }}/repo"
+    version: "{{ app_git_branch }}"
+    force: yes
+  become: yes
+  become_user: "{{ app_user }}"
+
+- name: Sync server source to app directory
+  synchronize:
+    src: "{{ app_base_dir }}/repo/server/src/"
+    dest: "{{ app_src_dir }}/"
+    delete: no
+  delegate_to: "{{ inventory_hostname }}"
+
+- name: Set ownership on source directory
+  file:
+    path: "{{ app_src_dir }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    recurse: yes
+    state: directory
+
+- name: Deploy Django settings.py
+  template:
+    src: settings.py.j2
+    dest: "{{ app_src_dir }}/server/settings.py"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0640"
+
+- name: Generate RSA key for UDS
+  command: openssl genrsa -traditional 2048
+  register: rsa_key_output
+  args:
+    creates: "{{ app_src_dir }}/server/rsa_key.pem"
+
+- name: Save RSA key to file
+  copy:
+    content: "{{ rsa_key_output.stdout }}"
+    dest: "{{ app_src_dir }}/server/rsa_key.pem"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0600"
+  when: rsa_key_output.changed
+
+- name: Generate self-signed SSL certificate
+  command: >
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048
+    -keyout {{ nginx_ssl_key }}
+    -out {{ nginx_ssl_cert }}
+    -subj "/C=VN/ST=HCM/L=HoChiMinh/O=FSOFT/CN={{ domain_name }}"
+  args:
+    creates: "{{ nginx_ssl_cert }}"
+
+- name: Set SSL certificate ownership
+  file:
+    path: "{{ item }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0644"
+  loop:
+    - "{{ nginx_ssl_cert }}"
+    - "{{ nginx_ssl_key }}"
+
+- name: Ensure log directory exists
+  file:
+    path: "{{ app_log_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+
+- name: Run Django migrations
+  command: "{{ app_venv_dir }}/bin/python manage.py migrate --noinput"
+  args:
+    chdir: "{{ app_src_dir }}"
+  become: yes
+  become_user: "{{ app_user }}"
+  environment:
+    DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
+  when: inventory_hostname in groups['openuds_primary']
+
+- name: Create Django cache table
+  command: "{{ app_venv_dir }}/bin/python manage.py createcachetable"
+  args:
+    chdir: "{{ app_src_dir }}"
+  become: yes
+  become_user: "{{ app_user }}"
+  environment:
+    DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
+  when: inventory_hostname in groups['openuds_primary']
+  ignore_errors: yes
+
+- name: Collect static files
+  command: "{{ app_venv_dir }}/bin/python manage.py collectstatic --noinput"
+  args:
+    chdir: "{{ app_src_dir }}"
+  become: yes
+  become_user: "{{ app_user }}"
+  environment:
+    DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
+
+- name: Set static files permissions
+  file:
+    path: "{{ app_static_dir }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_group }}"
+    mode: "0755"
+    recurse: yes
+    state: directory

@@ -85,3 +85,7 @@
 
 target/
 server/test-vars.ini
+
+private_key
+.claude/
+*.tar.gz

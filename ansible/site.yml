@@ -1,0 +1,82 @@
+---
+# =============================================================================
+# OpenUDS Server HA Deployment
+# =============================================================================
+# Deploy OpenUDS Django server on 2 nodes with full HA
+#
+# Usage:
+#   ansible-playbook -i hosts.ini site.yml
+#
+# Servers:
+#   Server 01 (Primary):  103.131.85.198
+#   Server 02 (Secondary): 103.131.85.202
+#   VIP:                   103.131.85.199
+# =============================================================================
+
+- name: Deploy OpenUDS Server with HA
+  hosts: openuds
+  become: yes
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Display deployment information
+      debug:
+        msg: |
+          Deploying OpenUDS Server HA
+          Host: {{ inventory_hostname }} ({{ ansible_host }})
+          Role: {{ 'PRIMARY' if inventory_hostname in groups['openuds_primary'] else 'SECONDARY' }}
+          VIP: {{ keepalived_vip }}
+          Domain: {{ domain_name }}
+
+    - name: Set MySQL server-id based on role
+      set_fact:
+        mysql_server_id: "{{ mysql_server_id_primary if inventory_hostname in groups['openuds_primary'] else mysql_server_id_secondary }}"
+
+  roles:
+    - role: common
+      tags: [common, base]
+
+    - role: python
+      tags: [python]
+
+    - role: mysql
+      tags: [mysql, database]
+
+    - role: openuds
+      tags: [openuds, app]
+
+    - role: openuds_server
+      tags: [openuds_server, systemd]
+
+    - role: nginx
+      tags: [nginx, web]
+
+    - role: haproxy
+      tags: [haproxy, lb]
+
+    - role: keepalived
+      tags: [keepalived, ha]
+
+  post_tasks:
+    - name: Display deployment summary
+      debug:
+        msg: |
+          ========================================
+          OpenUDS Server Deployed Successfully!
+          ========================================
+          Host: {{ inventory_hostname }} ({{ ansible_host }})
+          Role: {{ 'PRIMARY (MASTER)' if inventory_hostname in groups['openuds_primary'] else 'SECONDARY (BACKUP)' }}
+          
+          Services:
+            - openuds-server.socket    (Gunicorn Socket)
+            - openuds-server.service   (Gunicorn App)
+            - openuds-server-taskmanager.service (Task Manager)
+            - nginx                    (Reverse Proxy :{{ nginx_uds_port }})
+            - haproxy                  (Load Balancer :443)
+            - keepalived               (VIP: {{ keepalived_vip }})
+            - mysql                    (Database :3306)
+          
+          Access:
+            - HTTPS: https://{{ domain_name }}/
+            - HAProxy Stats: http://{{ ansible_host }}:{{ haproxy_stats_port }}/stats
+          ========================================

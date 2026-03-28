@@ -1,0 +1,81 @@
+---
+# =============================================================================
+# OpenUDS Server - Ansible Group Variables
+# =============================================================================
+
+# --- Application Settings ---
+app_name: openuds
+app_user: openuds
+app_group: openuds
+app_base_dir: /opt/openuds
+app_src_dir: "{{ app_base_dir }}/src"
+app_venv_dir: "{{ app_base_dir }}/venv"
+app_log_dir: "{{ app_src_dir }}/log"
+app_static_dir: "{{ app_src_dir }}/static"
+app_media_dir: "{{ app_src_dir }}/media"
+app_certs_dir: "{{ app_base_dir }}/certs"
+app_run_dir: /run/openuds
+
+# --- Git Repository ---
+app_git_repo: https://github.com/phongnva/openuds.git
+app_git_branch: v4.0.0
+
+# --- Python Settings ---
+python_version: "3.12"
+python_bin: "python{{ python_version }}"
+
+# --- Django Settings ---
+django_settings_module: server.settings
+django_secret_key: "s5ky!7b5f#s35!e38xv%e-+iey6yi-#630x)kk3kk5_j8rie2*"
+django_debug: "False"
+django_allowed_hosts: "'*'"
+django_timezone: "Asia/Ho_Chi_Minh"
+
+# --- Database Settings ---
+db_engine: django.db.backends.mysql
+db_name: dbuds
+db_user: dbuds
+db_password: "UDS@2024!Secure"
+db_host: localhost
+db_port: 3306
+mysql_root_password: "MySQL@Root2024!"
+
+# MySQL Replication
+mysql_server_id_primary: 1
+mysql_server_id_secondary: 2
+mysql_replication_user: repl_user
+mysql_replication_password: "Repl@2024!Secure"
+
+# --- Gunicorn Settings ---
+gunicorn_workers: 5
+gunicorn_threads: 8
+gunicorn_socket_path: "{{ app_run_dir }}/socket"
+gunicorn_pid_path: "{{ app_run_dir }}/pid"
+gunicorn_access_log: "{{ app_log_dir }}/gunicorn-access.log"
+gunicorn_error_log: "{{ app_log_dir }}/gunicorn-error.log"
+
+# --- Nginx Settings ---
+nginx_uds_port: 8443
+nginx_server_name: pv-vds.tk
+nginx_ssl_cert: "{{ app_certs_dir }}/{{ nginx_server_name }}.crt"
+nginx_ssl_key: "{{ app_certs_dir }}/{{ nginx_server_name }}.key"
+
+# --- HAProxy Settings ---
+haproxy_frontend_http_port: 80
+haproxy_frontend_https_port: 443
+haproxy_stats_port: 8404
+haproxy_stats_user: admin
+haproxy_stats_password: "HAProxy@Stats2024!"
+
+# --- Keepalived Settings ---
+keepalived_vip: 103.131.85.199
+keepalived_interface: eth0
+keepalived_virtual_router_id: 51
+keepalived_auth_pass: "KA@2024!"
+
+# --- Server IPs ---
+server_01_ip: 103.131.85.198
+server_02_ip: 103.131.85.202
+
+# --- Domain ---
+domain_name: pv-vds.tk

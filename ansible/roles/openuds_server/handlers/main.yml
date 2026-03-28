@@ -1,0 +1,12 @@
+---
+- name: restart openuds-server
+  systemd:
+    name: openuds-server.service
+    state: restarted
+    daemon_reload: yes
+
+- name: restart openuds-server-taskmanager
+  systemd:
+    name: openuds-server-taskmanager.service
+    state: restarted
+    daemon_reload: yes

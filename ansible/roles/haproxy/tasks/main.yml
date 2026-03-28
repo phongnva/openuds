@@ -1,0 +1,41 @@
+---
+# =============================================================================
+# Role: haproxy - Load balancer
+# =============================================================================
+
+- name: Install HAProxy
+  apt:
+    name: haproxy
+    state: present
+
+- name: Deploy HAProxy configuration
+  template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    owner: root
+    group: root
+    mode: "0644"
+    validate: "haproxy -c -f %s"
+  notify: restart haproxy
+
+- name: Copy SSL certificate for HAProxy (combined PEM)
+  shell: |
+    cat {{ nginx_ssl_cert }} {{ nginx_ssl_key }} > {{ app_certs_dir }}/haproxy.pem
+    chmod 600 {{ app_certs_dir }}/haproxy.pem
+  args:
+    creates: "{{ app_certs_dir }}/haproxy.pem"
+  notify: restart haproxy
+
+- name: Enable HAProxy in defaults
+  lineinfile:
+    path: /etc/default/haproxy
+    regexp: '^ENABLED='
+    line: 'ENABLED=1'
+    create: yes
+  notify: restart haproxy
+
+- name: Ensure HAProxy is started and enabled
+  systemd:
+    name: haproxy
+    state: started
+    enabled: yes

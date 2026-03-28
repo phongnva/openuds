@@ -1,0 +1,9 @@
+#!/bin/bash
+# Check if HAProxy is running
+# Used by Keepalived to determine if VIP should failover
+
+if /bin/systemctl is-active --quiet haproxy; then
+    exit 0
+else
+    exit 1
+fi

@@ -1,0 +1,53 @@
+---
+# =============================================================================
+# Role: openuds_server - Systemd services (gunicorn + taskmanager)
+# =============================================================================
+
+- name: Deploy openuds-server gunicorn socket unit
+  template:
+    src: openuds-server.socket.j2
+    dest: /etc/systemd/system/openuds-server.socket
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart openuds-server
+
+- name: Deploy openuds-server gunicorn service unit
+  template:
+    src: openuds-server.service.j2
+    dest: /etc/systemd/system/openuds-server.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart openuds-server
+
+- name: Deploy openuds-server taskmanager service unit
+  template:
+    src: openuds-server-taskmanager.service.j2
+    dest: /etc/systemd/system/openuds-server-taskmanager.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart openuds-server-taskmanager
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+
+- name: Enable and start openuds-server socket
+  systemd:
+    name: openuds-server.socket
+    state: started
+    enabled: yes
+
+- name: Enable and start openuds-server service
+  systemd:
+    name: openuds-server.service
+    state: started
+    enabled: yes
+
+- name: Enable and start openuds-server-taskmanager service
+  systemd:
+    name: openuds-server-taskmanager.service
+    state: started
+    enabled: yes

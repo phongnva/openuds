@@ -1,0 +1,36 @@
+[Unit]
+Description=OpenUDS Server (Gunicorn)
+Documentation=https://github.com/phongnva/openuds
+Requires=openuds-server.socket
+After=network.target mysql.service openuds-server.socket
+Wants=mysql.service
+
+[Service]
+Type=notify
+User={{ app_user }}
+Group={{ app_group }}
+RuntimeDirectory=openuds
+WorkingDirectory={{ app_src_dir }}
+Environment="DJANGO_SETTINGS_MODULE={{ django_settings_module }}"
+Environment="PATH={{ app_venv_dir }}/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="XDG_CACHE_HOME={{ app_run_dir }}/.cache"
+ExecStart={{ app_venv_dir }}/bin/gunicorn server.wsgi:application \
+    --pid {{ gunicorn_pid_path }} \
+    --bind unix:{{ gunicorn_socket_path }} \
+    --workers {{ gunicorn_workers }} \
+    --threads {{ gunicorn_threads }} \
+    --access-logfile {{ gunicorn_access_log }} \
+    --error-logfile {{ gunicorn_error_log }} \
+    --timeout 120 \
+    --graceful-timeout 30 \
+    --max-requests 1000 \
+    --max-requests-jitter 50
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=30
+PrivateTmp=true
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

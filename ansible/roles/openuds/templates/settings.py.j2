@@ -1,0 +1,416 @@
+# -*- coding: utf-8 -*-
+'''
+Settings file for uds server (Django) - Ansible Managed
+DO NOT EDIT MANUALLY - This file is managed by Ansible
+'''
+import os
+import sys
+import django
+
+# calculated paths for django and the site
+DJANGO_ROOT = os.path.dirname(os.path.realpath(django.__file__))
+BASE_DIR = '/'.join(
+    os.path.dirname(os.path.abspath(__file__)).split('/')[:-1]
+)
+
+DEBUG = {{ django_debug }}
+PROFILING = False
+
+SECURE_PROXY_SSL_HEADER = (
+    'HTTP_X_FORWARDED_PROTO',
+    'https',
+)
+
+DATABASES = {
+    'default': {
+        'ENGINE': '{{ db_engine }}',
+        'OPTIONS': {
+            'isolation_level': 'read committed',
+        },
+        'NAME': '{{ db_name }}',
+        'USER': '{{ db_user }}',
+        'PASSWORD': '{{ db_password }}',
+        'HOST': '{{ db_host }}',
+        'PORT': '{{ db_port }}',
+    },
+    'persistent': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'persistent.sqlite3'),
+        'OPTIONS': {
+            'timeout': 20,
+            'transaction_mode': 'IMMEDIATE',
+        },
+    }
+}
+
+ALLOWED_HOSTS = [{{ django_allowed_hosts }}]
+
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+
+TIME_ZONE = '{{ django_timezone }}'
+
+def gettext(s):
+    return s
+
+LANGUAGE_CODE = 'en'
+
+LANGUAGES = (
+    ('es', gettext('Spanish')),
+    ('en', gettext('English')),
+    ('fr', gettext('French')),
+    ('de', gettext('German')),
+    ('pt', gettext('Portuguese')),
+    ('it', gettext('Italian')),
+    ('ar', gettext('Arabic')),
+    ('eu', gettext('Basque')),
+    ('ar', gettext('Arabian')),
+    ('ca', gettext('Catalan')),
+    ('zh-hans', gettext('Chinese')),
+)
+
+LANGUAGE_COOKIE_NAME = 'uds_lang'
+USE_I18N = True
+USE_L10N = True
+
+MEDIA_ROOT = '{{ app_media_dir }}'
+MEDIA_URL = ''
+
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_URL = '/uds/res/'
+
+STATICFILES_DIRS = ()
+
+STATICFILES_FINDERS = (
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+)
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'uds_response_cache',
+        'OPTIONS': {
+            'MAX_ENTRIES': 5000,
+            'CULL_FREQUENCY': 3,
+        },
+    },
+    'memory': {
+        'BACKEND': 'django.core.cache.backends.memcached.PyLibMCCache',
+        'LOCATION': '127.0.0.1:11211',
+    },
+}
+
+# Update DB and CACHE if we are running tests
+if any(arg.endswith('test') or 'pytest/' in arg or '/pytest' in arg for arg in sys.argv) or 'PYTEST_XDIST_WORKER' in os.environ or 'TEST_UUID' in os.environ:
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'OPTIONS': {
+            'timeout': 20,
+        },
+        'NAME': ':memory:',
+    }
+    CACHES['memory'] = {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
+
+FILE_UPLOAD_PERMISSIONS = 0o640
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o750
+FILE_UPLOAD_MAX_MEMORY_SIZE = 512 * 1024
+
+SECRET_KEY = '{{ django_secret_key }}'
+
+# RSA Key - loaded from file
+RSA_KEY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'rsa_key.pem')
+try:
+    with open(RSA_KEY_FILE, 'r') as f:
+        RSA_KEY = f.read()
+except FileNotFoundError:
+    RSA_KEY = ''
+
+SECURE_CIPHERS = (
+    'AES-256-GCM-SHA384'
+    ':CHACHA20-POLY1305-SHA256'
+    ':AES-128-GCM-SHA256'
+    ':ECDHE-RSA-AES256-GCM-SHA384'
+    ':ECDHE-RSA-AES128-GCM-SHA256'
+    ':ECDHE-RSA-CHACHA20-POLY1305'
+    ':ECDHE-ECDSA-AES128-GCM-SHA256'
+    ':ECDHE-ECDSA-AES256-GCM-SHA384'
+    ':ECDHE-ECDSA-CHACHA20-POLY1305'
+)
+SECURE_MIN_TLS_VERSION = '1.2'
+
+LDAP_CIPHER_SUITE = 'PFS:-VERS-TLS-ALL:+VERS-TLS1.2:+VERS-TLS1.3:-AES-128-CBC'
+
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [
+            os.path.join(BASE_DIR, 'templates'),
+        ],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.contrib.auth.context_processors.auth',
+                'django.template.context_processors.debug',
+                'django.template.context_processors.i18n',
+                'django.template.context_processors.media',
+                'django.template.context_processors.static',
+                'django.template.context_processors.tz',
+                'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.request',
+            ],
+            'debug': DEBUG,
+        },
+    },
+]
+
+MIDDLEWARE = [
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
+    'uds.middleware.request.GlobalRequestMiddleware',
+    'uds.middleware.security.UDSSecurityMiddleware',
+    'uds.middleware.xua.XUACompatibleMiddleware',
+    'uds.middleware.redirect.RedirectMiddleware',
+]
+
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_COOKIE_HTTPONLY = False
+SESSION_SERIALIZER = 'uds.core.util.session_serializer.SessionSerializer'
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+ROOT_URLCONF = 'server.urls'
+WSGI_APPLICATION = 'server.wsgi.application'
+ASGI_APPLICATION = 'server.asgi.application'
+
+INSTALLED_APPS = (
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'uds.UDSAppConfig',
+)
+
+TEST_RUNNER = 'django.test.runner.DiscoverRunner'
+
+# Logging
+LOGDIR = BASE_DIR + '/' + 'log'
+LOGFILE = 'uds.log'
+SERVICESFILE = 'services.log'
+WORKERSFILE = 'workers.log'
+AUTHFILE = 'auth.log'
+USEFILE = 'use.log'
+TRACEFILE = 'trace.log'
+OPERATIONSFILE = 'operations.log'
+LOGLEVEL = 'DEBUG' if DEBUG else 'INFO'
+ROTATINGSIZE = 32 * 1024 * 1024
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': True,
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        }
+    },
+    'formatters': {
+        'database': {
+            'format': '%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s'
+        },
+        'simple': {
+            'format': '%(levelname)s %(asctime)s %(name)s:%(funcName)s %(lineno)d %(message)s'
+        },
+        'uds': {
+            'format': 'uds[%(process)-5s]: %(levelname)s %(asctime)s %(name)s:%(funcName)s %(lineno)d %(message)s'
+        },
+        'services': {
+            'format': 'uds-s[%(process)-5s]: %(levelname)s %(asctime)s %(name)s:%(funcName)s %(lineno)d %(message)s'
+        },
+        'workers': {
+            'format': 'uds-w[%(process)-5s]: %(levelname)s %(asctime)s %(name)s:%(funcName)s %(lineno)d %(message)s'
+        },
+        'auth': {'format': '%(asctime)s %(message)s'},
+        'use': {'format': '%(asctime)s %(message)s'},
+        'trace': {'format': '%(levelname)s %(asctime)s %(message)s'},
+    },
+    'handlers': {
+        'null': {
+            'level': 'DEBUG',
+            'class': 'logging.NullHandler',
+        },
+        'file': {
+            'level': 'DEBUG',
+            'class': 'uds.core.util.log.UDSLogHandler',
+            'formatter': 'simple',
+            'filename': LOGDIR + '/' + LOGFILE,
+            'mode': 'a',
+            'maxBytes': ROTATINGSIZE,
+            'backupCount': 3,
+            'encoding': 'utf-8',
+        },
+        'database': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'formatter': 'database',
+            'filename': LOGDIR + '/' + 'sql.log',
+            'mode': 'a',
+            'maxBytes': ROTATINGSIZE,
+            'backupCount': 3,
+            'encoding': 'utf-8',
+        },
+        'servicesFile': {
+            'level': 'DEBUG',
+            'class': 'uds.core.util.log.UDSLogHandler',
+            'formatter': 'simple',
+            'filename': LOGDIR + '/' + SERVICESFILE,
+            'mode': 'a',
+            'maxBytes': ROTATINGSIZE,
+            'backupCount': 3,
+            'encoding': 'utf-8',
+        },
+        'workersFile': {
+            'level': 'DEBUG',
+            'class': 'uds.core.util.log.UDSLogHandler',
+            'formatter': 'simple',
+            'filename': LOGDIR + '/' + WORKERSFILE,
+            'mode': 'a',
+            'maxBytes': ROTATINGSIZE,
+            'backupCount': 3,
+            'encoding': 'utf-8',
+        },
+        'authFile': {
+            'level': 'DEBUG',
+            'class': 'uds.core.util.log.UDSLogHandler',
+            'formatter': 'auth',
+            'filename': LOGDIR + '/' + AUTHFILE,
+            'mode': 'a',
+            'maxBytes': ROTATINGSIZE,
+            'backupCount': 3,
+            'encoding': 'utf-8',
+        },
+        'useFile': {
+            'level': 'DEBUG',
+            'class': 'uds.core.util.log.UDSLogHandler',
+            'formatter': 'use',
+            'filename': LOGDIR + '/' + USEFILE,
+            'mode': 'a',
+            'maxBytes': ROTATINGSIZE,
+            'backupCount': 3,
+            'encoding': 'utf-8',
+        },
+        'traceFile': {
+            'level': 'DEBUG',
+            'class': 'uds.core.util.log.UDSLogHandler',
+            'formatter': 'trace',
+            'filename': LOGDIR + '/' + TRACEFILE,
+            'mode': 'a',
+            'maxBytes': ROTATINGSIZE,
+            'backupCount': 3,
+            'encoding': 'utf-8',
+        },
+        'operationsFile': {
+            'level': 'DEBUG',
+            'class': 'uds.core.util.log.UDSLogHandler',
+            'formatter': 'trace',
+            'filename': LOGDIR + '/' + OPERATIONSFILE,
+            'mode': 'a',
+            'maxBytes': ROTATINGSIZE,
+            'backupCount': 3,
+            'encoding': 'utf-8',
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'mail_admins': {
+            'level': 'ERROR',
+            'class': 'django.utils.log.AdminEmailHandler',
+            'filters': ['require_debug_false'],
+        },
+    },
+    'loggers': {
+        '': {
+            'handlers': ['file'],
+            'level': LOGLEVEL,
+        },
+        'django': {
+            'handlers': ['null'],
+            'propagate': True,
+            'level': 'INFO',
+        },
+        'django.request': {
+            'handlers': ['file'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['database'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'django.security.DisallowedHost': {
+            'handlers': ['null'],
+            'propagate': False,
+        },
+        'fontTools': {
+            'handlers': ['null'],
+            'propagate': True,
+            'level': 'ERROR',
+        },
+        'matplotlib': {
+            'handlers': ['null'],
+            'propagate': True,
+            'level': 'ERROR',
+        },
+        'uds': {
+            'handlers': ['file'],
+            'level': LOGLEVEL,
+            'propagate': False,
+        },
+        'uds.workers': {
+            'handlers': ['workersFile'],
+            'level': LOGLEVEL,
+            'propagate': False,
+        },
+        'uds.core.jobs': {
+            'handlers': ['workersFile'],
+            'level': LOGLEVEL,
+            'propagate': False,
+        },
+        'uds.services': {
+            'handlers': ['servicesFile'],
+            'level': LOGLEVEL,
+            'propagate': False,
+        },
+        'uds.core.services': {
+            'handlers': ['servicesFile'],
+            'level': LOGLEVEL,
+            'propagate': False,
+        },
+        'authLog': {
+            'handlers': ['authFile'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'useLog': {
+            'handlers': ['useFile'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'traceLog': {
+            'handlers': ['traceFile'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'operationsLog': {
+            'handlers': ['operationsFile'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}

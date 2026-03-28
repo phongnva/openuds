@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Allow outgoing network connections (required to connect to UDS server) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- Allow reading/writing user-selected files (certificates, logs) -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+
+    <!-- Allow downloads folder access -->
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+
+    <!-- Disable app sandbox for full system access needed by RDP/VNC clients -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+</dict>
+</plist>
