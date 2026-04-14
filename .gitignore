@@ -21,3 +21,11 @@ full/.vscode/
 
 igelimage
 thinproimage
+
+# Python build artifacts
+build/
+dist/
+build_venv/
+build_venv_arm64/
+*.egg-info/
+.DS_Store

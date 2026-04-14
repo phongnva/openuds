@@ -228,13 +228,13 @@ class ForwardServer(socketserver.ThreadingTCPServer):
             context.options |= ssl.OP_NO_COMPRESSION
             # Macs with default installed python, does not support mininum tls version set to TLSv1.3
             # USe "brew" version instead, or uncomment next line and comment the next one
-            # context.minimum_version = ssl.TLSVersion.TLSv1_2 if tools.isMac() else ssl.TLSVersion.TLSv1_3
+            context.minimum_version = ssl.TLSVersion.TLSv1_2 if tools.is_macos() else ssl.TLSVersion.TLSv1_3
             # Disallow old versions of TLS
             # context.minimum_version = ssl.TLSVersion.TLSv1_2
             # Secure ciphers, use this is enabled tls 1.2
             # context.set_ciphers('ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384')
 
-            context.minimum_version = ssl.TLSVersion.TLSv1_3
+            # context.minimum_version = ssl.TLSVersion.TLSv1_3
 
             if tools.get_cacerts_file() is not None:
                 context.load_verify_locations(tools.get_cacerts_file())  # Load certifi certificates
