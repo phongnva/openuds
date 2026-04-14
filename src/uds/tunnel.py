@@ -217,6 +217,10 @@ class ForwardServer(socketserver.ThreadingTCPServer):
         with socket.socket(socket.AF_INET6 if use_ipv6 else socket.AF_INET, socket.SOCK_STREAM) as rsocket:
             logger.info('CONNECT to %s', remote_addr)
 
+            # --- Performance tuning: TCP_NODELAY and SO_KEEPALIVE ---
+            rsocket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            rsocket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+
             rsocket.connect(remote_addr)
 
             rsocket.sendall(consts.HANDSHAKE_V1)  # No response expected, just the handshake
@@ -289,6 +293,11 @@ class Handler(socketserver.BaseRequestHandler):
     def handle_tunnel(self, remote: ssl.SSLSocket) -> None:
         self.server.status = types.ForwardState.TUNNEL_PROCESSING
         logger.debug('Start processing tunnel for ticket %s', self.server.ticket)
+
+        # --- Performance tuning: TCP_NODELAY and SO_KEEPALIVE ---
+        self.request.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self.request.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+
         # Process data until stop requested or connection closed
         try:
             readables = [self.request, remote]

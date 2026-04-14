@@ -102,7 +102,7 @@ nVgtClKcDDlSaBsO875WDR0CAwEAAQ==
 
 
 # Variables for tunnel
-BUFFER_SIZE: typing.Final[int] = 1024 * 16  # Max buffer length
+BUFFER_SIZE: typing.Final[int] = 1024 * 64  # Max buffer length
 LISTEN_ADDRESS: typing.Final[str] = '127.0.0.1'
 LISTEN_ADDRESS_V6: typing.Final[str] = '::1'
 RESPONSE_OK: typing.Final[bytes] = b'OK'
